@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5411529b6c13d4fe6993f18b85db0e61
+TextScriptImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 94653
+  packageName: ShaderlabVSCode
+  packageVersion: 1.5.2
+  assetPath: Assets/ShaderlabVSCode/ScriptTemplates/HLSL Shader-New HLSL Shader.hlsl.txt
+  uploadId: 628726

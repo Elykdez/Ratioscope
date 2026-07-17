@@ -1,0 +1,198 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e9620f8c34305754d8cc9a7e49e852d9, type: 3}
+  m_Name: StringTable_en
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.StringTable
+  m_LocaleId:
+    m_Code: en
+  m_SharedData: {fileID: 11400000, guid: 83404ef92adb476428548341ddf2d5ea, type: 2}
+  m_Metadata:
+    m_Items: []
+  m_TableData:
+  - m_Id: 13034840064
+    m_Localized: Choose
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378155431878656
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378211618775040
+    m_Localized: Help
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378311048945664
+    m_Localized: Close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378595204653056
+    m_Localized: Download
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378712406089728
+    m_Localized: Expand
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378648837218304
+    m_Localized: AI Cortex
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378931025797120
+    m_Localized: Fold
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379048168513536
+    m_Localized: Switch Language
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379156222173184
+    m_Localized: Loading...
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379296064462848
+    m_Localized: Unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379691004321792
+    m_Localized: Settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000008
+    m_Localized: AI Model
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000014
+    m_Localized: Operation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000015
+    m_Localized: Send
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000016
+    m_Localized: Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000019
+    m_Localized: Ask Anything
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2866897522515968
+    m_Localized: Open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2866921333579776
+    m_Localized: Confirm
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2866986068467712
+    m_Localized: Cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090682761216
+    m_Localized: Updates
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090733092864
+    m_Localized: Status
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090733092865
+    m_Localized: Check for Updates
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090733092866
+    m_Localized: Open Release Page
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3214968647311360
+    m_Localized: Unwrap
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3219531475443712
+    m_Localized: Download AI Models
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3322880795336709
+    m_Localized: Mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3659539114090496
+    m_Localized: Missing GPU or less than {0}MB VRAM detected. Possible performance
+      degradation.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3665072374145024
+    m_Localized: All system green
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3665072374145025
+    m_Localized: User Config
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3665072374145026
+    m_Localized: Reset to Defaults
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5382539827994625
+    m_Localized: Compact
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6110773637013504
+    m_Localized: CONTEXT / WORKING MEMORY
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000020
+    m_Localized: AI Chat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000021
+    m_Localized: Model
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000022
+    m_Localized: Switching loads the selected model now; chat history is kept.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000023
+    m_Localized: Temperature
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000024
+    m_Localized: Higher values give more varied replies; 0 always picks the likeliest
+      token.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000025
+    m_Localized: Open Model Config
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000026
+    m_Localized: System Prompt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000027
+    m_Localized: Compress the chat into durable memory. Preserve names, user preferences,
+      facts, and decisions. Output only the compact memory, with no preamble.
+    m_Metadata:
+      m_Items: []
+  - m_Id: 12747267327909888
+    m_Localized: Import Chat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 12747433955024896
+    m_Localized: Export Chat
+    m_Metadata:
+      m_Items: []
+  references:
+    version: 2
+    RefIds: []

@@ -1,0 +1,19 @@
+fileFormatVersion: 2
+guid: b4fb4e2ea29914d4992a9fedae1c1213
+timeCreated: 1498899769
+licenseType: Store
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 94653
+  packageName: ShaderlabVSCode
+  packageVersion: 1.5.2
+  assetPath: Assets/ShaderlabVSCode/Editor/ShaderlabVSCodeEditor.cs
+  uploadId: 628726

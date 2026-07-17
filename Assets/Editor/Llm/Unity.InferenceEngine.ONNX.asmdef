@@ -1,0 +1,12 @@
+{
+  "name": "Unity.InferenceEngine.ONNX",
+  "rootNamespace": "Hypocycloid.Editor.Llm",
+  "references": [
+    "Unity.InferenceEngine"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "allowUnsafeCode": false,
+  "autoReferenced": true
+}

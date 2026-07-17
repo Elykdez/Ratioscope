@@ -1,0 +1,200 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: StringTable Shared Data
+  m_EditorClassIdentifier: Unity.Localization::UnityEngine.Localization.Tables.SharedTableData
+  m_TableCollectionName: StringTable
+  m_TableCollectionNameGuidString: 83404ef92adb476428548341ddf2d5ea
+  m_Entries:
+  - m_Id: 13034840064
+    m_Key: ui_tip_choose
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378155431878656
+    m_Key: ui_cancel
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378211618775040
+    m_Key: ui_tip_help
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378311048945664
+    m_Key: ui_tip_close
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378595204653056
+    m_Key: ui_tip_download
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378648837218304
+    m_Key: ui_tip_ai
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378712406089728
+    m_Key: ui_tip_expand
+    m_Metadata:
+      m_Items: []
+  - m_Id: 378931025797120
+    m_Key: ui_tip_fold
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379048168513536
+    m_Key: ui_tip_lang
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379156222173184
+    m_Key: ui_tip_loading
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379296064462848
+    m_Key: ui_tip_unavailable
+    m_Metadata:
+      m_Items: []
+  - m_Id: 379691004321792
+    m_Key: ui_tip_settings
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000008
+    m_Key: ui_ai_model
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000014
+    m_Key: ui_operation
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000015
+    m_Key: ui_send
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000016
+    m_Key: ui_clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000019
+    m_Key: ui_tip_welcome
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2866897522515968
+    m_Key: ui_tip_open
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2866921333579776
+    m_Key: ui_tip_yes
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2866986068467712
+    m_Key: ui_tip_no
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090682761216
+    m_Key: ui_cat_update
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090733092864
+    m_Key: ui_update_status
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090733092865
+    m_Key: ui_check_update
+    m_Metadata:
+      m_Items: []
+  - m_Id: 2924090733092866
+    m_Key: ui_open_release
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3214968647311360
+    m_Key: ui_tip_unwrap
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3219531475443712
+    m_Key: ui_download_models
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3322880795336709
+    m_Key: ui_shadow_mode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3659539114090496
+    m_Key: ui_tip_lowperf
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3665072374145024
+    m_Key: ui_tip_stdperf
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3665072374145025
+    m_Key: ui_cat_user_config
+    m_Metadata:
+      m_Items: []
+  - m_Id: 3665072374145026
+    m_Key: ui_reset_user_config
+    m_Metadata:
+      m_Items: []
+  - m_Id: 5382539827994625
+    m_Key: ui_option_compact
+    m_Metadata:
+      m_Items: []
+  - m_Id: 6110773637013504
+    m_Key: ui_tip_context
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000020
+    m_Key: ui_cat_ai
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000021
+    m_Key: ui_ai_select_model
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000022
+    m_Key: ui_tip_ai_select_model
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000023
+    m_Key: ui_ai_temperature
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000024
+    m_Key: ui_tip_ai_temperature
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000025
+    m_Key: ui_open_model_config
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000026
+    m_Key: ui_ai_system_prompt
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000027
+    m_Key: ui_compaction_instruction
+    m_Metadata:
+      m_Items: []
+  - m_Id: 12747267327909888
+    m_Key: ui_import
+    m_Metadata:
+      m_Items: []
+  - m_Id: 12747433955024896
+    m_Key: ui_export
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 4548171997118726257
+  references:
+    version: 2
+    RefIds:
+    - rid: 4548171997118726257
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1781589351157
