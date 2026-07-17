@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2b231f91ea9e14041991228349e094c7
+timeCreated: 1499345264
+licenseType: Store
+DefaultImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 94653
+  packageName: ShaderlabVSCode
+  packageVersion: 1.5.2
+  assetPath: Assets/ShaderlabVSCode/Documents/Manual.pdf
+  uploadId: 628726

@@ -1,0 +1,24 @@
+{
+    "name": "Hypocycloid.Utils",
+    "rootNamespace": "",
+    "references": [
+        "Unity.Addressables",
+        "Unity.Burst",
+        "Unity.InputSystem",
+        "Unity.Collections",
+        "Unity.Localization",
+        "Unity.Mathematics",
+        "Unity.ResourceManager",
+        "Unity.InferenceEngine",
+        "Hypocycloid.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

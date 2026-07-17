@@ -1,0 +1,78 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c78449a5f3d64b66ae18607d1720df63, type: 3}
+  m_Name: LlmSystemSettings
+  m_EditorClassIdentifier: Assembly-CSharp::Hypocycloid.Ratioscope.LlmSystemSettings
+  tokenizerRelativePath: Llm/llm_tokenizer.bin
+  sentisRelativeDirectory: Sentis
+  modelManifestRelativePath: config/models.json
+  profiles:
+  - option: -1
+    model:
+      modelFileName: Llm_Tiny_Text_128.sentis
+      decodeModelFileName: Llm_Tiny_Decode_128.sentis
+      backend: 512
+      supportsThinking: 0
+      transformerBlockCount: 4
+      vocabularySize: 512
+  - option: 0
+    model:
+      modelFileName: Llm_Text_2048.sentis
+      decodeModelFileName: Llm_Decode_2048.sentis
+      backend: 256
+      supportsThinking: 1
+      transformerBlockCount: 28
+      vocabularySize: 151936
+  - option: 1
+    model:
+      modelFileName: Llm_Text_2048.sentis
+      decodeModelFileName: Llm_Decode_2048.sentis
+      backend: 512
+      supportsThinking: 1
+      transformerBlockCount: 28
+      vocabularySize: 151936
+  - option: 2
+    model:
+      modelFileName: 
+      decodeModelFileName: Llm_Decode_4096.sentis
+      backend: 256
+      supportsThinking: 0
+      transformerBlockCount: 36
+      vocabularySize: 151936
+  - option: 3
+    model:
+      modelFileName: 
+      decodeModelFileName: Llm_Decode_4096.sentis
+      backend: 512
+      supportsThinking: 0
+      transformerBlockCount: 36
+      vocabularySize: 151936
+  cortexVisualization:
+    stageRows: 64
+    tokenRows: 8
+    forwardPulseHeat: 1
+    heatDecayRate: 1.4
+    candidateBaseHeat: 0.25
+    paletteEntropyScale: 0.25
+    entropySmoothing: 0.3
+    foldDuration: 1
+    columnRadius: 0.72
+    haloRadius: 1.08
+    haloOffset: 0.3
+    rotationSpeed: 7
+    glowIntensity: 1.15
+  vramReserveGiB: 0.5
+  minimumGpuVramGiB: 7.5
+  minimum4BVramGiB: 15.5
+  cpuFallbackOption: 1
+  midVramOption: 0
+  highVramOption: 2
