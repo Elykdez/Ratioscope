@@ -1,0 +1,135 @@
+{
+  "encodeCases": [
+    {
+      "text": "Hello world",
+      "ids": [
+        9707,
+        1879
+      ]
+    },
+    {
+      "text": "Reply with exactly PONG.",
+      "ids": [
+        20841,
+        448,
+        6896,
+        393,
+        7539,
+        13
+      ]
+    },
+    {
+      "text": "You are concise.",
+      "ids": [
+        2610,
+        525,
+        63594,
+        13
+      ]
+    },
+    {
+      "text": "Line one\nline two  with  spaces",
+      "ids": [
+        2460,
+        825,
+        198,
+        1056,
+        1378,
+        220,
+        448,
+        220,
+        12621
+      ]
+    },
+    {
+      "text": "你好，世界！",
+      "ids": [
+        108386,
+        3837,
+        99489,
+        6313
+      ]
+    },
+    {
+      "text": "Emoji 🙂 test",
+      "ids": [
+        92731,
+        27484,
+        1273
+      ]
+    },
+    {
+      "text": "assistant\n",
+      "ids": [
+        77091,
+        198
+      ]
+    },
+    {
+      "text": "It's 12345 numbers, don't merge them!",
+      "ids": [
+        2132,
+        594,
+        220,
+        16,
+        17,
+        18,
+        19,
+        20,
+        5109,
+        11,
+        1513,
+        944,
+        10880,
+        1105,
+        0
+      ]
+    },
+    {
+      "text": "  leading and trailing  ",
+      "ids": [
+        220,
+        6388,
+        323,
+        27748,
+        256
+      ]
+    }
+  ],
+  "chatMessages": [
+    {
+      "role": "system",
+      "content": "You are concise."
+    },
+    {
+      "role": "user",
+      "content": "Reply with exactly PONG."
+    }
+  ],
+  "chatIds": [
+    151644,
+    8948,
+    198,
+    2610,
+    525,
+    63594,
+    13,
+    151645,
+    198,
+    151644,
+    872,
+    198,
+    20841,
+    448,
+    6896,
+    393,
+    7539,
+    13,
+    151645,
+    198,
+    151644,
+    77091,
+    198
+  ],
+  "chatText": "<|im_start|>system\nYou are concise.<|im_end|>\n<|im_start|>user\nReply with exactly PONG.<|im_end|>\n<|im_start|>assistant\n"
+}

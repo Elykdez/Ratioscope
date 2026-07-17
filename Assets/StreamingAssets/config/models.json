@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "baseUrl": "https://huggingface.co/elykdez/ratioscope-models/resolve/main",
+  "entries": [
+    {
+      "fileName": "Llm_Decode_2048.sentis",
+      "byteSize": 2032789960,
+      "sha256": "",
+      "relativeUrl": "Llm_Decode_2048.sentis"
+    },
+    {
+      "fileName": "Llm_Decode_4096.sentis",
+      "byteSize": 4412880256,
+      "sha256": "",
+      "relativeUrl": "Llm_Decode_4096.sentis"
+    }
+  ]
+}
