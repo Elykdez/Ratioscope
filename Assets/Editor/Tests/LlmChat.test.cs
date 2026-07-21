@@ -1088,10 +1088,11 @@ namespace Hypocycloid.Editor
         }
 
         [Test]
-        public void CortexLoadingEventsDriveOuterHudOverlay()
+        public void CortexLoadingAndDownloadEventsDriveOuterHudOverlay()
         {
             GameObject sourceObject = new("CortexSource");
             CortexCore source = sourceObject.AddComponent<CortexCore>();
+            LlmModelDownloader downloader = sourceObject.AddComponent<LlmModelDownloader>();
             GameObject overlayPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 "Assets/Bundles/Prefabs/UI/Shared/Overlay.prefab"
             );
@@ -1102,6 +1103,9 @@ namespace Hypocycloid.Editor
             try
             {
                 UILoading loading = overlay.GetComponent<UILoading>();
+                SerializedObject serializedSource = new(source);
+                serializedSource.FindProperty("modelDownloader").objectReferenceValue = downloader;
+                serializedSource.ApplyModifiedPropertiesWithoutUndo();
                 SerializedObject serializedBinder = new(binder);
                 serializedBinder.FindProperty("source").objectReferenceValue = source;
                 serializedBinder.FindProperty("loadingView").objectReferenceValue = loading;
@@ -1120,9 +1124,33 @@ namespace Hypocycloid.Editor
                     typeof(CortexCore)
                         .GetField("ModelLoadingFinished", eventFlags)
                         .GetValue(source);
+                Action downloadStarted = (Action)
+                    typeof(LlmModelDownloader)
+                        .GetField("DownloadStarted", eventFlags)
+                        .GetValue(downloader);
+                Action<string, float> downloadStatusChanged = (Action<string, float>)
+                    typeof(LlmModelDownloader)
+                        .GetField("DownloadStatusChanged", eventFlags)
+                        .GetValue(downloader);
+                Action downloadFinished = (Action)
+                    typeof(LlmModelDownloader)
+                        .GetField("DownloadFinished", eventFlags)
+                        .GetValue(downloader);
+
+                downloadStarted.Invoke();
+                downloadStatusChanged.Invoke("Downloading test model 50%", 0.5f);
+                Assert.That(loading.IndeterminateVisual.activeInHierarchy, Is.True);
+                UnityEngine.UI.RawImage ring =
+                    loading.IndeterminateVisual.GetComponent<UnityEngine.UI.RawImage>();
+                Assert.That(ring.material.GetFloat("_Progress"), Is.EqualTo(0.5f).Within(0.001f));
 
                 started.Invoke();
-                Assert.That(loading.IndeterminateVisual.activeInHierarchy, Is.True);
+                downloadFinished.Invoke();
+                Assert.That(
+                    loading.IndeterminateVisual.activeInHierarchy,
+                    Is.True,
+                    "The model-load token must keep the HUD visible after download finishes."
+                );
                 finished.Invoke();
                 Assert.That(loading.IndeterminateVisual.activeSelf, Is.False);
             }
@@ -1168,6 +1196,15 @@ namespace Hypocycloid.Editor
                 );
 
                 loading.EndLoading(token);
+                Assert.That(loading.IndeterminateVisual.activeSelf, Is.False);
+
+                loading.SetProgress(0.5f);
+                Assert.That(loading.IndeterminateVisual.activeSelf, Is.True);
+                Assert.That(
+                    ring.material.GetFloat("_Progress"),
+                    Is.EqualTo(0.5f).Within(0.001f)
+                );
+                loading.SetProgress(0f);
                 Assert.That(loading.IndeterminateVisual.activeSelf, Is.False);
             }
             finally

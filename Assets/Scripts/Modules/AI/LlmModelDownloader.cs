@@ -86,6 +86,9 @@ namespace Hypocycloid.Ratioscope
         public float Progress { get; private set; }
         public string StatusText { get; private set; } = "Model status unavailable";
 
+        public event Action DownloadStarted;
+        public event Action<string, float> DownloadStatusChanged;
+        public event Action DownloadFinished;
         public event Action ModelSetChanged;
 
         void Awake()
@@ -184,6 +187,7 @@ namespace Hypocycloid.Ratioscope
 
             IsDownloading = true;
             Progress = 0f;
+            DownloadStarted?.Invoke();
             bool anyError = false;
             try
             {
@@ -240,11 +244,13 @@ namespace Hypocycloid.Ratioscope
                 StatusText = anyError
                     ? $"{entry.fileName} download failed"
                     : $"Model ready: {entry.fileName}";
+                PublishDownloadStatus();
             }
             finally
             {
                 IsDownloading = false;
                 Progress = 0f;
+                DownloadFinished?.Invoke();
                 ModelSetChanged?.Invoke();
             }
         }
@@ -255,6 +261,7 @@ namespace Hypocycloid.Ratioscope
             string temporaryPath = finalPath + ".part";
             DeleteIfExists(temporaryPath);
             StatusText = $"Downloading {entry.fileName} 0%";
+            PublishDownloadStatus();
 
             using (UnityWebRequest request = new(url, UnityWebRequest.kHttpVerbGET))
             {
@@ -268,12 +275,14 @@ namespace Hypocycloid.Ratioscope
                     Progress = request.downloadProgress;
                     StatusText =
                         $"Downloading {entry.fileName} {Mathf.RoundToInt(Progress * 100f)}%";
+                    PublishDownloadStatus();
                     yield return null;
                 }
 
                 if (request.result != UnityWebRequest.Result.Success)
                 {
                     StatusText = $"{entry.fileName} download failed: {request.error}";
+                    PublishDownloadStatus();
                     LogHelper.LogError(
                         $"[LlmModelDownloader] {entry.fileName} <{url}>: {request.error}"
                     );
@@ -283,7 +292,9 @@ namespace Hypocycloid.Ratioscope
                 }
             }
 
+            Progress = 0f;
             StatusText = $"Verifying {entry.fileName}...";
+            PublishDownloadStatus();
             Task<bool> verification = Task.Run(
                 () => VerifyFile(temporaryPath, entry.sha256, entry.byteSize)
             );
@@ -293,6 +304,7 @@ namespace Hypocycloid.Ratioscope
             if (verification.IsFaulted || !verification.Result)
             {
                 StatusText = $"{entry.fileName} verification failed";
+                PublishDownloadStatus();
                 LogHelper.LogError(
                     $"[LlmModelDownloader] {entry.fileName} checksum/size mismatch; discarded."
                 );
@@ -311,6 +323,7 @@ namespace Hypocycloid.Ratioscope
             catch (Exception exception)
             {
                 StatusText = $"{entry.fileName} could not be finalized";
+                PublishDownloadStatus();
                 LogHelper.LogError(
                     $"[LlmModelDownloader] {entry.fileName} finalize failed: {exception.Message}"
                 );
@@ -318,6 +331,8 @@ namespace Hypocycloid.Ratioscope
                 completed(false);
             }
         }
+
+        void PublishDownloadStatus() => DownloadStatusChanged?.Invoke(StatusText, Progress);
 
         LlmModelManifestEntry GetSelectedEntry(LlmModelManifest manifest)
         {

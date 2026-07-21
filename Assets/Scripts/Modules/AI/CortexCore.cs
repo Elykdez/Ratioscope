@@ -106,6 +106,7 @@ namespace Hypocycloid.Ratioscope
         public bool SupportsThinking => serviceOptions != null && serviceOptions.SupportsThinking;
         public bool EnableThinking => enableThinking;
         public int TransformerBlockCount => serviceOptions?.TransformerBlockCount ?? 0;
+        public LlmModelDownloader ModelDownloader => modelDownloader;
         public LlmTokenizer Tokenizer => service?.Tokenizer;
         public bool HasCompletableTurn => TryGetOldestCompleteTurn(out _, out _);
 
