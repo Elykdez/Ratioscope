@@ -185,6 +185,15 @@ MonoBehaviour:
       facts, and decisions. Output only the compact memory, with no preamble.
     m_Metadata:
       m_Items: []
+  - m_Id: 380000000000028
+    m_Localized: Thinking
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000029
+    m_Localized: Let supported models reason before answering. This uses part of the
+      reply token budget.
+    m_Metadata:
+      m_Items: []
   - m_Id: 12747267327909888
     m_Localized: Import Chat
     m_Metadata:

@@ -179,6 +179,14 @@ MonoBehaviour:
     m_Key: ui_compaction_instruction
     m_Metadata:
       m_Items: []
+  - m_Id: 380000000000028
+    m_Key: ui_ai_thinking
+    m_Metadata:
+      m_Items: []
+  - m_Id: 380000000000029
+    m_Key: ui_tip_ai_thinking
+    m_Metadata:
+      m_Items: []
   - m_Id: 12747267327909888
     m_Key: ui_import
     m_Metadata:
