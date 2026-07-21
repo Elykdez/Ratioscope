@@ -35,7 +35,7 @@ The generated model files are large, so startup can take time. A **model load fa
 
 Only one reply or context-compaction pass runs at a time. Sending and compaction are disabled while the model is busy. The status line reports graph progress, generated-token count, seconds per token, context use, and entropy. After completion it reports the reply length and total generation time.
 
-The current UI requests up to 512 new tokens per reply. The actual reply can be shorter when the model emits an end marker or when the remaining context window has less space. The 1.7B profile supports a separate thinking phase: reasoning streams into a muted **thinking** bubble while the visible answer streams into the **ai** bubble. Profiles without thinking support show only the answer.
+The current UI requests up to 512 new tokens per reply. The actual reply can be shorter when the model emits an end marker or when the remaining context window has less space. The 1.7B profile supports a separate thinking phase, controlled by the **Thinking** toggle under **Settings**. When enabled, reasoning streams into a muted **thinking** bubble while the visible answer streams into the **ai** bubble. Profiles without thinking support show only the answer.
 
 The model can make factual mistakes. Ratioscope has no web access, tools, image input, audio input, or external knowledge lookup in the current version.
 

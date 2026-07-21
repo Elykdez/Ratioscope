@@ -349,7 +349,7 @@ namespace Hypocycloid.Ratioscope
             SetSendEnabled(false);
             AddBubble(userBubblePrefab, "you", text);
             dialogue.Add(ChatMessage.User(text));
-            if (aiCortex.SupportsThinking)
+            if (aiCortex.SupportsThinking && aiCortex.EnableThinking)
             {
                 activeThinkingLabel = AddBubble(
                     thinkingBubblePrefab,

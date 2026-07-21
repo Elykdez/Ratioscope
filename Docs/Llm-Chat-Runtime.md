@@ -37,12 +37,12 @@ swapping checkpoints means re-running the exports below against a different
 byte-level BPE tokenizer (Qwen, Llama 3, Phi, SmolLM) fits the pipeline as-is;
 hybrid architectures (Qwen3.5+ Gated DeltaNet, SSM/Mamba) do not survive ONNX->Sentis.
 Qwen3-1.7B is a thinking-capable checkpoint, so its presets set
-`ChatServiceOptions.SupportsThinking`. The Cortex UI disables thinking for normal replies so
-reasoning cannot consume the fixed context before a visible answer begins. API callers can opt
-in with `ChatGenerationOptions.EnableThinking = true`; the `<think>` stream is then exposed
-separately from visible answer text. With thinking disabled, the prompt pre-closes the think
-block like `apply_chat_template(enable_thinking=False)`. Non-thinking checkpoints ignore this
-flag.
+`ChatServiceOptions.SupportsThinking`. The Cortex UI exposes a **Thinking** toggle under
+**Settings** and leaves it off by default so reasoning cannot consume the fixed context before
+a visible answer begins. API callers opt in with `ChatGenerationOptions.EnableThinking = true`;
+the `<think>` stream is then exposed separately from visible answer text. With thinking disabled,
+the prompt pre-closes the think block like `apply_chat_template(enable_thinking=False)`.
+Non-thinking checkpoints ignore this flag.
 
 The Unity API is `ChatService` (`Assets/Scripts/Modules/AI`).
 
@@ -313,7 +313,7 @@ ChatResult result = chat.Chat(
     {
         MaxNewTokens = 8,
         Temperature = 0f,
-        EnableThinking = false, // utility-style exact response; normal chat leaves this true
+        EnableThinking = false, // Cortex normal chat takes this from its Settings toggle
     }
 );
 
@@ -393,9 +393,10 @@ instance of `Overlay.prefab`, keeping HUD presentation out of the chat controlle
 `CortexLoadingRing.shader` renders the animated loading ring. The `LlmSystemSettings`
 asset serialized on the controller prefab chooses the hardware tier by default;
 disable `Auto Select System Option` to use the serialized manual option. Select `Tiny`
-there only for editor/test iteration; automatic hardware selection never chooses it. When the selected checkpoint supports thinking,
-the controller streams its reasoning into a muted `thinking` bubble and its user-visible
-response into a separate `ai` bubble. Context compaction disables thinking.
+there only for editor/test iteration; automatic hardware selection never chooses it. When the
+selected checkpoint supports thinking and the config toggle is enabled, the controller streams
+its reasoning into a muted `thinking` bubble and its user-visible response into a separate `ai`
+bubble. Context compaction disables thinking.
 
 ## Tests
 
@@ -456,8 +457,9 @@ select the non-explicit tests individually for a fast-only pass.
 - The 1.7B checkpoint answers with lower quality than the 4B; it is the tradeoff for
   a 2048 window plus GPU speed on 8 GiB hardware.
 - Per-tensor uint8 quantization trades some answer quality for a 4x smaller artifact.
-- Tool calling, images, and audio are not implemented. Thinking is shown only when the
-  selected checkpoint declares support; Qwen3-4B-Instruct-2507 is non-thinking.
+- Tool calling, images, and audio are not implemented. Thinking is shown only when its config
+  toggle is enabled and the selected checkpoint declares support;
+  Qwen3-4B-Instruct-2507 is non-thinking.
 - Consecutive same-role messages are emitted as-is, not merged.
 
 ## Next steps
