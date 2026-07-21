@@ -21,6 +21,7 @@ public class StandaloneFileBrowserFragment extends Fragment {
     private Boolean multiple;
     private String defaultName;
     private byte[] saveData;
+    private boolean pickerStarted;
 
     public void setFileBrowserAndroidListener(final StandaloneFileBrowserAndroidListener fileBrowserAndroidListener) {
         this.fileBrowserAndroidListener = fileBrowserAndroidListener;
@@ -46,6 +47,15 @@ public class StandaloneFileBrowserFragment extends Fragment {
     @Override
     public void onStart () {
         super.onStart ();
+
+        // onStart runs again when the document picker returns control to Unity.
+        // Starting another intent on that second call makes both open and save
+        // dialogs appear twice for a single button press.
+        if (pickerStarted) {
+            return;
+        }
+        pickerStarted = true;
+
         if (saveFileBrowserAndroidListener != null) {
             final Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
             intent.addCategory(Intent.CATEGORY_OPENABLE);
