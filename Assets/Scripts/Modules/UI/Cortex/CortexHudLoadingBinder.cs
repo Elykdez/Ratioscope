@@ -15,49 +15,115 @@ namespace Hypocycloid.Ratioscope
         [SerializeField]
         UILoading loadingView;
 
-        int loadingToken;
+        LlmModelDownloader downloader;
+        int modelLoadingToken;
+        int downloadLoadingToken;
 
         void OnEnable()
         {
             if (source == null || loadingView == null)
                 return;
 
-            source.ModelLoadingStarted += BeginLoading;
-            source.ModelLoadingStatusChanged += UpdateLoadingStatus;
-            source.ModelLoadingFinished += EndLoading;
+            source.ModelLoadingStarted += BeginModelLoading;
+            source.ModelLoadingStatusChanged += UpdateModelLoadingStatus;
+            source.ModelLoadingFinished += EndModelLoading;
+
+            downloader = source.ModelDownloader;
+            if (downloader != null)
+            {
+                downloader.DownloadStarted += BeginDownload;
+                downloader.DownloadStatusChanged += UpdateDownloadStatus;
+                downloader.DownloadFinished += EndDownload;
+            }
+
             if (source.IsModelLoading)
-                BeginLoading();
+                BeginModelLoading();
+            if (downloader != null && downloader.IsDownloading)
+                BeginDownload();
         }
 
         void OnDisable()
         {
             if (source != null)
             {
-                source.ModelLoadingStarted -= BeginLoading;
-                source.ModelLoadingStatusChanged -= UpdateLoadingStatus;
-                source.ModelLoadingFinished -= EndLoading;
+                source.ModelLoadingStarted -= BeginModelLoading;
+                source.ModelLoadingStatusChanged -= UpdateModelLoadingStatus;
+                source.ModelLoadingFinished -= EndModelLoading;
             }
-            EndLoading();
+
+            if (downloader != null)
+            {
+                downloader.DownloadStarted -= BeginDownload;
+                downloader.DownloadStatusChanged -= UpdateDownloadStatus;
+                downloader.DownloadFinished -= EndDownload;
+            }
+
+            EndDownload();
+            EndModelLoading();
+            downloader = null;
         }
 
-        void BeginLoading()
+        void BeginModelLoading()
         {
             if (loadingView == null)
                 return;
 
-            if (loadingToken == 0)
-                loadingToken = loadingView.BeginLoading();
-            UpdateLoadingStatus(source != null ? source.ModelLoadingStatus : "Loading...");
+            if (modelLoadingToken == 0)
+                modelLoadingToken = loadingView.BeginLoading();
+            loadingView.SetProgress(0f);
+            UpdateModelLoadingStatus(source != null ? source.ModelLoadingStatus : "Loading...");
         }
 
-        void UpdateLoadingStatus(string message) => loadingView?.SetMessage(message);
-
-        void EndLoading()
+        void UpdateModelLoadingStatus(string message)
         {
-            if (loadingView != null && loadingToken != 0)
-                loadingView.EndLoading(loadingToken);
-            loadingView?.ResetMessage();
-            loadingToken = 0;
+            if (downloadLoadingToken == 0)
+                loadingView?.SetMessage(message);
+        }
+
+        void EndModelLoading()
+        {
+            if (loadingView != null && modelLoadingToken != 0)
+                loadingView.EndLoading(modelLoadingToken);
+            modelLoadingToken = 0;
+
+            if (downloadLoadingToken == 0)
+            {
+                loadingView?.SetProgress(0f);
+                loadingView?.ResetMessage();
+            }
+        }
+
+        void BeginDownload()
+        {
+            if (loadingView == null)
+                return;
+
+            if (downloadLoadingToken == 0)
+                downloadLoadingToken = loadingView.BeginLoading();
+            if (downloader != null)
+                UpdateDownloadStatus(downloader.StatusText, downloader.Progress);
+        }
+
+        void UpdateDownloadStatus(string message, float progress)
+        {
+            if (loadingView == null)
+                return;
+
+            loadingView.SetProgress(progress);
+            loadingView.SetMessage(message);
+        }
+
+        void EndDownload()
+        {
+            if (loadingView != null && downloadLoadingToken != 0)
+                loadingView.EndLoading(downloadLoadingToken);
+            downloadLoadingToken = 0;
+            loadingView?.SetProgress(0f);
+
+            if (modelLoadingToken != 0 && source != null)
+                loadingView?.SetMessage(source.ModelLoadingStatus);
+            else
+                loadingView?.ResetMessage();
         }
     }
 }
