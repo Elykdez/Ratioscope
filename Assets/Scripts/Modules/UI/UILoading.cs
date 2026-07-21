@@ -52,11 +52,13 @@ namespace Hypocycloid.Ratioscope
         int nextLoadingToken = 1;
         float progress;
         Material loadingMaterialInstance;
+        Material indeterminateMaterialInstance;
         bool registered;
 
         static int LoadingIntroTexId { get; } = Shader.PropertyToID("_IntroTex");
         static int LoadingMainTexId { get; } = Shader.PropertyToID("_MainTex");
         static int LoadingSliderId { get; } = Shader.PropertyToID("_Slider");
+        static int ProgressId { get; } = Shader.PropertyToID("_Progress");
 
         GameObject ActiveRoot => activeRoot != null ? activeRoot : gameObject;
         bool IsLoading => loadingTokens.Count > 0;
@@ -86,6 +88,12 @@ namespace Hypocycloid.Ratioscope
             {
                 Destroy(loadingMaterialInstance);
                 loadingMaterialInstance = null;
+            }
+
+            if (indeterminateMaterialInstance != null)
+            {
+                Destroy(indeterminateMaterialInstance);
+                indeterminateMaterialInstance = null;
             }
         }
 
@@ -195,11 +203,15 @@ namespace Hypocycloid.Ratioscope
                 LoadingOverlay.raycastTarget = showOverlay;
             }
 
-            bool showIndeterminate = IsLoading && !IsProgressing && indeterminateVisual != null;
-            if (indeterminateVisual != null && indeterminateVisual.activeSelf != showIndeterminate)
-                indeterminateVisual.SetActive(showIndeterminate);
+            bool showAuthoredVisual = ShouldShowRoot && indeterminateVisual != null;
+            if (
+                indeterminateVisual != null
+                && indeterminateVisual.activeSelf != showAuthoredVisual
+            )
+                indeterminateVisual.SetActive(showAuthoredVisual);
+            DriveAuthoredProgress();
 
-            bool showProgress = IsProgressing || (IsLoading && indeterminateVisual == null);
+            bool showProgress = ShouldShowRoot && indeterminateVisual == null;
             SetGraphicObjectActive(ProgressFillImage, showProgress);
             if (ProgressFillImage != null)
             {
@@ -231,6 +243,33 @@ namespace Hypocycloid.Ratioscope
                 0f,
                 -Time.unscaledTime * IndeterminateDegreesPerSecond
             );
+        }
+
+        void DriveAuthoredProgress()
+        {
+            if (indeterminateVisual == null)
+                return;
+
+            Graphic graphic = indeterminateVisual.GetComponent<Graphic>();
+            if (graphic == null || graphic.material == null)
+                return;
+
+            if (
+                indeterminateMaterialInstance == null
+                || graphic.material != indeterminateMaterialInstance
+            )
+            {
+                if (!graphic.material.HasProperty(ProgressId))
+                    return;
+
+                if (indeterminateMaterialInstance != null)
+                    Destroy(indeterminateMaterialInstance);
+
+                indeterminateMaterialInstance = new Material(graphic.material);
+                graphic.material = indeterminateMaterialInstance;
+            }
+
+            indeterminateMaterialInstance.SetFloat(ProgressId, IsProgressing ? progress : -1f);
         }
 
         void SetGraphicObjectActive(Graphic graphic, bool active)
