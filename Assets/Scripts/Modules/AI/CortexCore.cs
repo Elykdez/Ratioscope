@@ -44,6 +44,7 @@ namespace Hypocycloid.Ratioscope
         int maxNewTokens;
 
         [SerializeField]
+        [ConfigSetting("ui_ai_thinking", tipKey: "ui_tip_ai_thinking", priority: 19)]
         [Tooltip(
             "Allows supported models to emit a hidden reasoning block before the answer. "
                 + "Disabled by default so reasoning cannot consume the reply budget."
@@ -103,6 +104,7 @@ namespace Hypocycloid.Ratioscope
         public StreamPurpose ActiveStreamPurpose { get; private set; }
         public bool IsStreaming => stream != null;
         public bool SupportsThinking => serviceOptions != null && serviceOptions.SupportsThinking;
+        public bool EnableThinking => enableThinking;
         public int TransformerBlockCount => serviceOptions?.TransformerBlockCount ?? 0;
         public LlmTokenizer Tokenizer => service?.Tokenizer;
         public bool HasCompletableTurn => TryGetOldestCompleteTurn(out _, out _);
@@ -597,7 +599,13 @@ namespace Hypocycloid.Ratioscope
 
         void OnTokenSampled(TokenMetrics metrics)
         {
-            string raw = service.Tokenizer.Decode(stream.GeneratedIds);
+            // The parser needs generation control markers such as <think> and </think> to
+            // keep reasoning out of the visible answer while it streams. Preserve added
+            // tokens explicitly even if a future tokenizer marks those delimiters special.
+            string raw = service.Tokenizer.Decode(
+                stream.GeneratedIds,
+                skipSpecialTokens: false
+            );
             ChatService.ParseStreamingResponse(
                 raw,
                 out string live,

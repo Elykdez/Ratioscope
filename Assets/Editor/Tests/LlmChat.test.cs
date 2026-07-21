@@ -405,6 +405,21 @@ namespace Hypocycloid.Editor
         }
 
         [Test]
+        public void ThinkingGenerationIsExposedAsAConfigSetting()
+        {
+            FieldInfo field = typeof(CortexCore).GetField(
+                "enableThinking",
+                BindingFlags.Instance | BindingFlags.NonPublic
+            );
+
+            Assert.That(field, Is.Not.Null);
+            var setting = field.GetCustomAttribute<Hypocycloid.Core.ConfigSettingAttribute>();
+            Assert.That(setting, Is.Not.Null);
+            Assert.That(setting.I18nKey, Is.EqualTo("ui_ai_thinking"));
+            Assert.That(setting.TipKey, Is.EqualTo("ui_tip_ai_thinking"));
+        }
+
+        [Test]
         public void TokenMetricsExtractFullSoftmaxEntropyAndTopCandidates()
         {
             TokenMetrics metrics = TokenMetrics.FromLogits(new[] { 0f, 1f, 2f }, 2);
