@@ -1,17 +1,17 @@
 {
   "version": "1",
-  "baseUrl": "https://huggingface.co/elykdez/ratioscope-models/resolve/main",
+  "baseUrl": "https://github.com/Elykdez/Ratioscope/releases/latest/download",
   "entries": [
     {
       "fileName": "Llm_Decode_2048.sentis",
       "byteSize": 2032789960,
-      "sha256": "",
+      "sha256": "aa7844d0aad61e2978f1b54124abbde12c20dead0d9b376df22dc51f8a193b7d",
       "relativeUrl": "Llm_Decode_2048.sentis"
     },
     {
       "fileName": "Llm_Decode_4096.sentis",
       "byteSize": 4412880256,
-      "sha256": "",
+      "sha256": "204bd938cecae895b82a478c230265397188f2aa91ed764dba015a067acbb05f",
       "relativeUrl": "Llm_Decode_4096.sentis"
     }
   ]
