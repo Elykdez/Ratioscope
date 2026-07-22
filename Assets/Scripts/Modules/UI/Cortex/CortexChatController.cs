@@ -216,7 +216,17 @@ namespace Hypocycloid.Ratioscope
             UpdatePerformanceStatus();
             if (aiCortex != null && aiCortex.IsStreaming)
                 UpdateStreamingStatus();
+            // Chat generation runs in AICortex regardless; here we only pause the cortex render
+            // when a full-screen overlay hides it from the user.
+            matrixView?.SetRenderingSuppressed(IsOverlayOpen());
             UpdateTooltip();
+        }
+
+        // Settings and help render above the cortex as full-screen overlays.
+        bool IsOverlayOpen()
+        {
+            return (configPanel != null && configPanel.Visible)
+                || (helpPanel != null && helpPanel.Visible);
         }
 
         void LateUpdate()
@@ -776,10 +786,7 @@ namespace Hypocycloid.Ratioscope
                 return;
 
             // Settings and help render above the cortex; suppress cell tooltips while open.
-            bool overlayOpen =
-                (configPanel != null && configPanel.Visible)
-                || (helpPanel != null && helpPanel.Visible);
-            if (overlayOpen)
+            if (IsOverlayOpen())
             {
                 HideCellTip();
                 return;

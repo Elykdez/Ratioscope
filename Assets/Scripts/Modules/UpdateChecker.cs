@@ -26,7 +26,7 @@ namespace Hypocycloid.Ratioscope
     /// <see cref="Dismiss"/> so a given version is not re-announced on later launches.
     /// </summary>
     [ConfigSettings("ui_cat_update", priority: 10)]
-    public sealed class UpdateChecker : MonoBehaviour
+    public sealed class UpdateChecker : MonoSingleton<UpdateChecker>
     {
         // Persisted (global) so a dismissed version stays dismissed across launches/scenes.
         const string DismissedVersionKey = "update_dismissed_version";

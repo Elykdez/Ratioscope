@@ -43,6 +43,11 @@ namespace Hypocycloid.Ratioscope
         ChatStream attached;
         Canvas canvas;
         CortexVisualizationSettings visualization;
+        bool renderingSuppressed;
+
+        // Heat state stays live via stream events and CPU decay so it is truthful when shown
+        // again; only the GPU upload and the off-screen render are skipped while off screen.
+        bool ShouldRender => image != null && image.isActiveAndEnabled && !renderingSuppressed;
 
         #region Unity Lifecycle
 
@@ -71,6 +76,8 @@ namespace Hypocycloid.Ratioscope
             if (heatTexture == null)
                 return;
             Grid.Decay(Time.deltaTime);
+            if (!ShouldRender)
+                return;
             UploadHeat();
             volume.SetEntropy(
                 Mathf.Clamp01(Grid.SmoothedEntropy * visualization.PaletteEntropyScale)
@@ -99,6 +106,17 @@ namespace Hypocycloid.Ratioscope
             volume?.FoldTo(is3D);
             if (image != null)
                 image.raycastTarget = is3D;
+        }
+
+        /// <summary>Pauses the GPU heat upload and off-screen render while the matrix is hidden
+        /// (e.g. a full-screen overlay is open). Heat state keeps advancing so the chat and
+        /// visualization stay in sync when it returns.</summary>
+        public void SetRenderingSuppressed(bool value)
+        {
+            if (renderingSuppressed == value)
+                return;
+            renderingSuppressed = value;
+            volume?.SetRenderingSuppressed(value);
         }
 
         public void OnBeginDrag(PointerEventData eventData)
@@ -199,7 +217,7 @@ namespace Hypocycloid.Ratioscope
                     autoGenerateMips = false,
                     sRGB = false,
                 };
-            heatTexture = TextureManager.Ins.GetRenderTexture(
+            heatTexture = TextureManager.Ins.GetPersistentRenderTexture(
                 "Cortex Heat",
                 descriptor,
                 FilterMode.Point
