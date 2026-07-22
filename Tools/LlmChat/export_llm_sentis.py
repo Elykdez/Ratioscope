@@ -2,9 +2,9 @@
 """Export a causal-LM text decoder as a fixed-context ONNX graph for Sentis.
 
 Works for standard dense transformers loadable via AutoModelForCausalLM
-(current target: Qwen3-4B-Instruct-2507). Weights are exported as float32 so
-the Unity-side converter can quantize them to uint8 predictably; initializers
-above Sentis's 500 MB constant limit are split into offset-zero chunk files.
+(current target: Qwen3-4B-Instruct-2507). Weights are exported as float32
+so the Unity-side converter can quantize them to uint8 predictably; 
+initializers above Sentis's 500 MB constant limit are split into offset-zero chunk files.
 """
 
 from __future__ import annotations
@@ -258,6 +258,9 @@ def export_decode_onnx(
         (prefill_mask, torch.ones((1, 1), dtype=torch.int64)), dim=1
     )
     position_ids = torch.tensor([[2]], dtype=torch.int64)
+    # Keep KV I/O fp32. Inference Engine 2.6 imports ONNX float16 inputs and outputs as Float
+    # and pads internal Short storage to 32-bit GPU buffers, so fp16 cache tensors do not halve memory.
+    # A 1024-token fp32 cache is approximately the supported equivalent of a hypothetical 2048-token fp16 cache.
     empty_cache = tuple(
         torch.zeros((1, kv_heads, cache_length, head_dim), dtype=torch.float32)
         for _ in range(layer_count * 2)

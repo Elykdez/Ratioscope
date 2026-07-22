@@ -33,7 +33,9 @@ As a chatbot, the tradeoffs look wrong; as an instrument for watching a transfor
 
 ### Why Not Float16?
 
-The converter also offers `Float16` weight quantization; in Sentis 2.6 it is mechanically possible and practically pointless. Sentis pads 16-bit data into int32 buffers and casts weights to fp32 before every kernel, so a Float16 artifact serializes and resides at full fp32 size - larger on disk and in VRAM than `Uint8` - gaining only per-weight accuracy. True 16-bit (or 4-bit) execution residency would require a different runtime such as llama.cpp, which conflicts with the self-contained goals above, so keep `Uint8`.
+The converter actually offers `Float16` weight quantization; in current version of Sentis it is mechanically possible but practically pointless. Sentis pads 16-bit data into int32 buffers and casts weights to fp32 before every kernel, so a Float16 artifact serializes and resides at full fp32 size, larger on disk and in VRAM than `Uint8`, gaining only per-weight accuracy. Also this fp32 size does not actually improve KV Cache precision - it preserves attention history precisely, but the underlying weights have already been quantized.
+
+True 16-bit (or 4-bit) execution residency would require a different runtime such as llama.cpp, which conflicts with the self-contained goals above.
 
 See [Contribution.md](./CONTRIBUTION.md) for more technical details and [`Docs/Llm-Chat-Runtime.md`](./Docs/Llm-Chat-Runtime.md) for the concrete numbers behind these tradeoffs.
 
@@ -71,7 +73,7 @@ The Unity Inference Engine, AKA "Sentis", **is not a general-purpose ONNX Runtim
 
 This is especially relevant to large language models:
 
-- ONNX control-flow and sequence operators such as `If`, `Loop`, and `Scan` are unsupported in Sentis 2.6.
+- ONNX control-flow and sequence operators such as `If`, `Loop`, and `Scan` are unsupported in Sentis 2.6.x.
 - Fused operators such as ONNX `Attention` and `RotaryEmbedding` are unsupported and must be exported as compatible primitive operations.
 - Standard ONNX quantization operators such as `QuantizeLinear`, `DequantizeLinear`, and `QLinearMatMul` are unsupported. This project therefore exports a floating-point ONNX graph and applies its own uint8 weight conversion inside Unity.
 - Operator support varies by backend. A graph that imports successfully can still fail if one of its layers or data types is unavailable on the selected CPU or GPU backend.

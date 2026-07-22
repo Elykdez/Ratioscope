@@ -37,7 +37,7 @@ namespace Hypocycloid.Ratioscope
         readonly float heatDecayRate;
         readonly float candidateBaseHeat;
         readonly float entropySmoothing;
-        TokenCandidate[] lastCandidates = Array.Empty<TokenCandidate>();
+        readonly List<TokenCandidate> lastCandidates = new();
         float smoothedEntropy;
 
         public int Width { get; }
@@ -156,9 +156,10 @@ namespace Hypocycloid.Ratioscope
         /// probability. Updates the entropy that drives the palette.</summary>
         public void OnToken(TokenMetrics metrics)
         {
-            lastCandidates = new TokenCandidate[metrics.TopCandidates.Count];
+            // Reuse the backing storage so a full generation does not churn one array per token.
+            lastCandidates.Clear();
             for (int i = 0; i < metrics.TopCandidates.Count; i++)
-                lastCandidates[i] = metrics.TopCandidates[i];
+                lastCandidates.Add(metrics.TopCandidates[i]);
 
             foreach (TokenCandidate candidate in metrics.TopCandidates)
             {

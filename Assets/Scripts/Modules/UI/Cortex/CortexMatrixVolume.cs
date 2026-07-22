@@ -77,6 +77,7 @@ namespace Hypocycloid.Ratioscope
         float userPitch;
         bool dragging;
         bool initialized;
+        bool renderingSuppressed;
 
         public float FoldAmount => foldAmount;
         public bool IsFolded => foldTarget > FoldEpsilon || foldAmount > FoldEpsilon;
@@ -89,6 +90,7 @@ namespace Hypocycloid.Ratioscope
         {
             if (
                 !initialized
+                || renderingSuppressed
                 || settings == null
                 || heatTexture == null
                 || cellMesh == null
@@ -265,7 +267,7 @@ namespace Hypocycloid.Ratioscope
                 return;
 
             ReleaseOutputTexture();
-            outputTexture = TextureManager.Ins.GetRenderTexture(
+            outputTexture = TextureManager.Ins.GetPersistentRenderTexture(
                 "Cortex Matrix Volume",
                 width,
                 height,
@@ -426,6 +428,12 @@ namespace Hypocycloid.Ratioscope
         public void SetEntropy(float entropyMix)
         {
             material?.SetFloat(EntropyMixId, entropyMix);
+        }
+
+        /// <summary>Stops the off-screen camera render while the matrix is not on screen.</summary>
+        public void SetRenderingSuppressed(bool value)
+        {
+            renderingSuppressed = value;
         }
 
         public void ClearHeatTexture()
