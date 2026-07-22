@@ -53,6 +53,8 @@ namespace Hypocycloid.Ratioscope
         float progress;
         Material loadingMaterialInstance;
         Material indeterminateMaterialInstance;
+        Graphic indeterminateGraphic;
+        bool indeterminateGraphicResolved;
         bool registered;
 
         static int LoadingIntroTexId { get; } = Shader.PropertyToID("_IntroTex");
@@ -250,7 +252,13 @@ namespace Hypocycloid.Ratioscope
             if (indeterminateVisual == null)
                 return;
 
-            Graphic graphic = indeterminateVisual.GetComponent<Graphic>();
+            if (!indeterminateGraphicResolved)
+            {
+                indeterminateGraphic = indeterminateVisual.GetComponent<Graphic>();
+                indeterminateGraphicResolved = true;
+            }
+
+            Graphic graphic = indeterminateGraphic;
             if (graphic == null || graphic.material == null)
                 return;
 
