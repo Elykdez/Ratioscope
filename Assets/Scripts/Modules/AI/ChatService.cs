@@ -211,7 +211,7 @@ namespace Hypocycloid.Ratioscope
                     ? ChatFinishReason.StopToken
                 : context.PromptTokens + generated.Count >= context.WindowCapacity
                     ? ChatFinishReason.ContextLimit
-                    : ChatFinishReason.TokenLimit;
+                : ChatFinishReason.TokenLimit;
             return new ChatResult(
                 content,
                 thinking,
@@ -717,8 +717,10 @@ namespace Hypocycloid.Ratioscope
             FillCachedAttentionMask(mask);
             using Tensor<int> idsTensor = new(new TensorShape(1, 1), new[] { token });
             using Tensor<int> maskTensor = new(new TensorShape(1, contextLength), mask);
-            using Tensor<int> positionTensor =
-                new(new TensorShape(1, 1), new[] { cachedTokenIds.Count });
+            using Tensor<int> positionTensor = new(
+                new TensorShape(1, 1),
+                new[] { cachedTokenIds.Count }
+            );
             worker.SetInput(inputIdsName, idsTensor);
             worker.SetInput(attentionMaskName, maskTensor);
             worker.SetInput(positionIdsName, positionTensor);

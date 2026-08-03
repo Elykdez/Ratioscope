@@ -274,6 +274,7 @@ MonoBehaviour:
   maxNewTokens: 0
   enableThinking: 0
   temperature: 0.7
+  hideMissingGlyphWarnings: 1
   frameBudgetMilliseconds: 8
   compactionInstruction:
     m_TableReference:
@@ -829,7 +830,7 @@ PrefabInstance:
       objectReference: {fileID: 330585548}
     - target: {fileID: 1268328820039875644, guid: 77e28b7fa19d9094c9885e5d84650e72, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -0.000030517578
+      value: 0.000019073486
       objectReference: {fileID: 0}
     - target: {fileID: 1268328820039877414, guid: 77e28b7fa19d9094c9885e5d84650e72, type: 3}
       propertyPath: m_AnchorMax.x
@@ -2231,6 +2232,26 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3327743376581767784, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}

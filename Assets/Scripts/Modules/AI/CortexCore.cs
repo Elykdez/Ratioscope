@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using Hypocycloid.Core;
+using Hypocycloid.UI;
 using Hypocycloid.Utils;
 using UnityEngine;
 using UnityEngine.Localization;
@@ -57,16 +58,21 @@ namespace Hypocycloid.Ratioscope
         float temperature = 0.7f;
 
         [SerializeField]
+        [Tooltip("Silences console warning for glyphs the token label font cannot supply.")]
+        bool hideMissingGlyphWarnings = true;
+
+        [SerializeField]
         [Tooltip("Milliseconds of model work per frame while generating.")]
         float frameBudgetMilliseconds = 8f;
 
         [SerializeField]
         [Tooltip("System instruction for manual compaction; localized via StringTable.")]
-        LocalizedString compactionInstruction = new()
-        {
-            TableReference = "StringTable",
-            TableEntryReference = "ui_compaction_instruction",
-        };
+        LocalizedString compactionInstruction =
+            new()
+            {
+                TableReference = "StringTable",
+                TableEntryReference = "ui_compaction_instruction",
+            };
 
         [SerializeField]
         [Range(32, 256)]
@@ -224,6 +230,15 @@ namespace Hypocycloid.Ratioscope
                 return;
             IsInspecting = value;
             InspectionChanged?.Invoke(value);
+        }
+
+        void Awake()
+        {
+            if (!UIHelper.SetTextWarningsEnabled(!hideMissingGlyphWarnings))
+                LogHelper.LogWarning(
+                    "[CortexCore] TMP's warning flag could not be reached; console warnings "
+                        + "stay as serialized in TMP Settings."
+                );
         }
 
         void Update()
@@ -495,12 +510,13 @@ namespace Hypocycloid.Ratioscope
 
             compactingUser = user;
             compactingAssistant = assistant;
-            ChatGenerationOptions generation = new()
-            {
-                MaxNewTokens = compactedMemoryTokens,
-                Temperature = 0f,
-                EnableThinking = false,
-            };
+            ChatGenerationOptions generation =
+                new()
+                {
+                    MaxNewTokens = compactedMemoryTokens,
+                    Temperature = 0f,
+                    EnableThinking = false,
+                };
             try
             {
                 AttachStream(
@@ -646,10 +662,7 @@ namespace Hypocycloid.Ratioscope
             // The parser needs generation control markers such as <think> and </think> to
             // keep reasoning out of the visible answer while it streams. Preserve added
             // tokens explicitly even if a future tokenizer marks those delimiters special.
-            string raw = service.Tokenizer.Decode(
-                stream.GeneratedIds,
-                skipSpecialTokens: false
-            );
+            string raw = service.Tokenizer.Decode(stream.GeneratedIds, skipSpecialTokens: false);
             ChatService.ParseStreamingResponse(
                 raw,
                 out string live,

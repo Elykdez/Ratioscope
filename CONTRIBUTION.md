@@ -12,7 +12,7 @@ Running an LLM inside Unity Inference Engine is not the efficient way to run an 
 2. The piece must run as one self-contained offline Unity build, suitable for an installation: no Python service, no separate inference server, no cloud.
 3. The engine's constraints (fp32-only kernels, fixed context windows, per-tensor uint8 weights) are accepted rather than fought, because chat throughput and answer quality are secondary to making the machinery visible.
 
-As a chatbot, the tradeoffs look wrong; as an instrument for watching a transformer work, they are the point.
+As a chatbot, the tradeoffs look wrong; as an instrument for watching a transformer work, they are the point. See [`Docs/Cortex-Glyphs.md`](./Docs/Cortex-Glyphs.md) to understand how the glyphs are displayed.
 
 ### Why Not FP16?
 

@@ -27,22 +27,25 @@ namespace Hypocycloid.Ratioscope
             if (messages == null)
                 throw new ArgumentNullException(nameof(messages));
 
-            DialogueDocument document =
-                new()
-                {
-                    version = CurrentVersion,
-                    messages = new DialogueMessage[messages.Count],
-                };
+            DialogueDocument document = new()
+            {
+                version = CurrentVersion,
+                messages = new DialogueMessage[messages.Count],
+            };
             for (int i = 0; i < messages.Count; i++)
             {
-                ChatMessage message = messages[i]
+                ChatMessage message =
+                    messages[i]
                     ?? throw new ArgumentException("Dialogue messages cannot contain null.");
                 if (message.Role != "user" && message.Role != "assistant")
                     throw new ArgumentException(
                         "Dialogue files can only contain user and assistant messages."
                     );
-                document.messages[i] =
-                    new DialogueMessage { role = message.Role, content = message.Content };
+                document.messages[i] = new DialogueMessage
+                {
+                    role = message.Role,
+                    content = message.Content,
+                };
             }
 
             return JsonUtility.ToJson(document, true);
