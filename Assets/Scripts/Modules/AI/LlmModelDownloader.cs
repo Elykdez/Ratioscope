@@ -295,8 +295,8 @@ namespace Hypocycloid.Ratioscope
             Progress = 0f;
             StatusText = $"Verifying {entry.fileName}...";
             PublishDownloadStatus();
-            Task<bool> verification = Task.Run(
-                () => VerifyFile(temporaryPath, entry.sha256, entry.byteSize)
+            Task<bool> verification = Task.Run(() =>
+                VerifyFile(temporaryPath, entry.sha256, entry.byteSize)
             );
             while (!verification.IsCompleted)
                 yield return null;

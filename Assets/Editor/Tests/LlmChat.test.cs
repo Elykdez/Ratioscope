@@ -94,7 +94,11 @@ namespace Hypocycloid.Editor
 
             string text = ChatDialogueFile.Serialize(source);
             Assert.That(
-                ChatDialogueFile.TryDeserialize(text, out List<ChatMessage> loaded, out string error),
+                ChatDialogueFile.TryDeserialize(
+                    text,
+                    out List<ChatMessage> loaded,
+                    out string error
+                ),
                 Is.True,
                 error
             );
@@ -154,10 +158,11 @@ namespace Hypocycloid.Editor
                 };
 
                 Assert.That(cortex.ReplaceConversation(imported), Is.True);
-                var history = (List<ChatMessage>)
-                    typeof(CortexCore)
-                        .GetField("history", BindingFlags.Instance | BindingFlags.NonPublic)
-                        .GetValue(cortex);
+                var history =
+                    (List<ChatMessage>)
+                        typeof(CortexCore)
+                            .GetField("history", BindingFlags.Instance | BindingFlags.NonPublic)
+                            .GetValue(cortex);
                 Assert.That(
                     history.Select(message => message.Role),
                     Is.EqualTo(new[] { "system", "user", "assistant" })
@@ -206,7 +211,14 @@ namespace Hypocycloid.Editor
             }
         }
 
-        [TestCase(LlmSystemOption.Tiny, BackendType.CPU, "Llm_Tiny_Decode_128.sentis", false, 4, 512)]
+        [TestCase(
+            LlmSystemOption.Tiny,
+            BackendType.CPU,
+            "Llm_Tiny_Decode_128.sentis",
+            false,
+            4,
+            512
+        )]
         [TestCase(
             LlmSystemOption.Gpu1_7B_2048,
             BackendType.GPUCompute,
@@ -263,22 +275,42 @@ namespace Hypocycloid.Editor
         {
             LlmSystemSettings settings = SystemSettings;
             Assert.That(settings, Is.Not.Null);
+
+            // Thresholds and tiers are authored on the asset, so read them instead of repeating
+            // them here. Hard-coded copies drift the moment anyone retunes the asset, and a test
+            // that disagrees with the shipped values says nothing about the selection logic -
+            // which is the only thing this test is actually able to prove.
+            // intValue, not enumValueIndex: LlmSystemOption starts at Tiny = -1, so the
+            // declaration index and the underlying value do not line up.
+            SerializedObject serialized = new(settings);
+            float minimumGpu = serialized.FindProperty("minimumGpuVramGiB").floatValue;
+            float minimum4B = serialized.FindProperty("minimum4BVramGiB").floatValue;
+            LlmSystemOption cpuFallback = (LlmSystemOption)
+                serialized.FindProperty("cpuFallbackOption").intValue;
+            LlmSystemOption midVram = (LlmSystemOption)
+                serialized.FindProperty("midVramOption").intValue;
+            LlmSystemOption highVram = (LlmSystemOption)
+                serialized.FindProperty("highVramOption").intValue;
+
+            Assert.That(minimumGpu, Is.GreaterThan(0f));
+            Assert.That(minimum4B, Is.GreaterThan(minimumGpu));
+
+            // Each band, and both sides of each boundary: the thresholds are inclusive lower
+            // bounds, so a value exactly on one belongs to the tier above.
+            const float epsilon = 0.01f;
+            Assert.That(settings.SelectForUsableVram(0f), Is.EqualTo(cpuFallback));
             Assert.That(
-                settings.SelectForUsableVram(3.79f),
-                Is.EqualTo(LlmSystemOption.Cpu1_7B_2048)
+                settings.SelectForUsableVram(minimumGpu - epsilon),
+                Is.EqualTo(cpuFallback)
             );
+            Assert.That(settings.SelectForUsableVram(minimumGpu), Is.EqualTo(midVram));
+            Assert.That(settings.SelectForUsableVram(minimum4B - epsilon), Is.EqualTo(midVram));
+            Assert.That(settings.SelectForUsableVram(minimum4B), Is.EqualTo(highVram));
+
+            // No GPU always falls back, however much memory is reported.
             Assert.That(
-                settings.SelectForUsableVram(3.8f),
-                Is.EqualTo(LlmSystemOption.Gpu1_7B_2048)
-            );
-            Assert.That(
-                settings.SelectForUsableVram(7.79f),
-                Is.EqualTo(LlmSystemOption.Gpu1_7B_2048)
-            );
-            Assert.That(settings.SelectForUsableVram(7.8f), Is.EqualTo(LlmSystemOption.Gpu4B_4096));
-            Assert.That(
-                settings.SelectForUsableVram(12f, hasGpu: false),
-                Is.EqualTo(LlmSystemOption.Cpu1_7B_2048)
+                settings.SelectForUsableVram(minimum4B + 10f, hasGpu: false),
+                Is.EqualTo(cpuFallback)
             );
         }
 
@@ -453,6 +485,12 @@ namespace Hypocycloid.Editor
             Assert.That(structureCell.Heat, Is.EqualTo(1f));
 
             TokenMetrics metrics = TokenMetrics.FromLogits(new[] { 0f, 1f, 2f }, 2);
+            TokenCandidate[] candidates = (TokenCandidate[])metrics.TopCandidates;
+            candidates[0] = new TokenCandidate(
+                candidates[0].Id,
+                " cortex",
+                candidates[0].Probability
+            );
             grid.OnToken(metrics);
             int tokenIndex = grid.TokenCellIndex(2);
             CortexCellInfo tokenCell = grid.GetCell(
@@ -463,6 +501,7 @@ namespace Hypocycloid.Editor
 
             Assert.That(tokenCell.Region, Is.EqualTo("token surface"));
             Assert.That(tokenCell.TokenId, Is.EqualTo(2));
+            Assert.That(tokenCell.TokenText, Is.EqualTo(" cortex"));
             Assert.That(tokenCell.Probability, Is.EqualTo(0.665241f).Within(0.000001f));
             Assert.That(grid.TokenCellIndex(2), Is.EqualTo(tokenIndex));
 
@@ -494,6 +533,148 @@ namespace Hypocycloid.Editor
             }
         }
 
+        [Test]
+        public void CortexMatrixPrefabHasAuthoredTokenLabelWiring()
+        {
+            const string path = "Assets/Bundles/Prefabs/UI/Components/CortexMatrix.prefab";
+            GameObject root = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                CortexMatrixVolume volume = root.GetComponent<CortexMatrixVolume>();
+                Assert.That(volume, Is.Not.Null);
+
+                SerializedObject serialized = new(volume);
+                TMP_Text source =
+                    serialized.FindProperty("tokenTextSource").objectReferenceValue as TMP_Text;
+                // The component clones these at runtime, so the prefab has to point at the
+                // authored assets rather than at bare shaders.
+                Material labelMaterial =
+                    serialized.FindProperty("tokenLabelMaterial").objectReferenceValue as Material;
+                Material volumeMaterial =
+                    serialized.FindProperty("volumeMaterial").objectReferenceValue as Material;
+                Assert.That(source, Is.Not.Null);
+                Assert.That(source.gameObject.activeSelf, Is.False);
+                Assert.That(source.richText, Is.False);
+                Assert.That(source.raycastTarget, Is.False);
+                Assert.That(source.font.name, Is.EqualTo("WDXL Lubrifont SC SDF"));
+                Assert.That(labelMaterial, Is.Not.Null);
+                Assert.That(labelMaterial.shader, Is.Not.Null);
+                Assert.That(labelMaterial.shader.name, Is.EqualTo("Ratioscope/CortexTokenLabels"));
+                Assert.That(volumeMaterial, Is.Not.Null);
+                Shader volumeShader = volumeMaterial.shader;
+                Assert.That(volumeShader, Is.Not.Null);
+                Assert.That(volumeShader.name, Is.EqualTo("Ratioscope/CortexMatrixVolume"));
+                string[] volumeProperties = Enumerable
+                    .Range(0, volumeShader.GetPropertyCount())
+                    .Select(volumeShader.GetPropertyName)
+                    .ToArray();
+                // The layer rows sample their symbols from the token label font's own SDF atlas,
+                // so there is no separate glyph atlas asset and no per-layer symbol table.
+                CollectionAssert.Contains(volumeProperties, "_LayerGlyphAtlas");
+                CollectionAssert.Contains(volumeProperties, "_LayerGlyphCount");
+                CollectionAssert.Contains(volumeProperties, "_LayerGlyphGradientScale");
+                CollectionAssert.Contains(volumeProperties, "_LayerGlyphSlots");
+                CollectionAssert.Contains(volumeProperties, "_LayerFlatCellAspect");
+                CollectionAssert.Contains(volumeProperties, "_LayerFoldedCellAspect");
+
+                // Row leading is authored on the material rather than pushed from the component,
+                // so this is the only thing standing between a bad value and a sheet that reads
+                // as one slab of text.
+                Assert.That(volumeMaterial.GetFloat("_LayerGlyphFill"), Is.InRange(0.3f, 1f));
+
+                // Every layer symbol has to resolve in that font, or the field silently
+                // narrows to whichever ones happen to be present.
+                foreach (char symbol in CortexMatrixVolume.LayerGlyphSymbols)
+                {
+                    Assert.That(
+                        source.font.characterLookupTable.ContainsKey(symbol),
+                        Is.True,
+                        $"The token label font is missing the layer symbol '{symbol}'."
+                    );
+                }
+                TMP_TextInfo englishTextInfo = source.GetTextInfo("cortex");
+                Assert.That(
+                    englishTextInfo
+                        .characterInfo.Take(englishTextInfo.characterCount)
+                        .Count(character => character.isVisible),
+                    Is.EqualTo(6)
+                );
+                TMP_TextInfo chineseTextInfo = source.GetTextInfo("\u77E9\u9635\u8868");
+                Assert.That(
+                    chineseTextInfo
+                        .characterInfo.Take(chineseTextInfo.characterCount)
+                        .Count(character => character.isVisible),
+                    Is.EqualTo(3)
+                );
+
+                MethodInfo getDisplayText = typeof(CortexMatrixVolume).GetMethod(
+                    "GetTokenDisplayText",
+                    BindingFlags.Static | BindingFlags.NonPublic
+                );
+                Assert.That(
+                    getDisplayText.Invoke(null, new object[] { " cortex ", 3 }),
+                    Is.EqualTo("cor")
+                );
+                Assert.That(
+                    getDisplayText.Invoke(null, new object[] { "\u77E9\u9635\u8868\u9762", 3 }),
+                    Is.EqualTo("\u77E9\u9635\u8868")
+                );
+                Assert.That(
+                    getDisplayText.Invoke(null, new object[] { " cortex ", 1 }),
+                    Is.EqualTo("c")
+                );
+                Assert.That(
+                    getDisplayText.Invoke(null, new object[] { "\u77E9\u9635\u8868\u9762", 1 }),
+                    Is.EqualTo("\u77E9")
+                );
+                Assert.That(
+                    getDisplayText.Invoke(null, new object[] { " \t", 1 }),
+                    Is.EqualTo("\u00B7")
+                );
+
+                MethodInfo isVerticalLayout = typeof(CortexMatrixVolume).GetMethod(
+                    "IsVerticalLayout",
+                    BindingFlags.Static | BindingFlags.NonPublic
+                );
+                Assert.That(isVerticalLayout.Invoke(null, new object[] { 720, 1280 }), Is.True);
+                Assert.That(isVerticalLayout.Invoke(null, new object[] { 1280, 720 }), Is.False);
+                Assert.That(isVerticalLayout.Invoke(null, new object[] { 720, 720 }), Is.False);
+
+                MethodInfo getGlyphs = typeof(CortexMatrixVolume).GetMethod(
+                    "GetTokenGlyphs",
+                    BindingFlags.Instance | BindingFlags.NonPublic
+                );
+                object glyphs = getGlyphs.Invoke(volume, new object[] { "cortex" });
+                Vector2[] positions =
+                    glyphs
+                        .GetType()
+                        .GetField("Positions", BindingFlags.Instance | BindingFlags.Public)
+                        .GetValue(glyphs) as Vector2[];
+                Assert.That(positions, Has.Length.EqualTo(12));
+                Vector2 boundsCenter =
+                    new(
+                        (positions.Min(vertex => vertex.x) + positions.Max(vertex => vertex.x))
+                            * 0.5f,
+                        (positions.Min(vertex => vertex.y) + positions.Max(vertex => vertex.y))
+                            * 0.5f
+                    );
+                Assert.That(boundsCenter.x, Is.Zero.Within(0.00001f));
+                Assert.That(boundsCenter.y, Is.Zero.Within(0.00001f));
+
+                object whitespaceGlyph = getGlyphs.Invoke(volume, new object[] { " " });
+                Vector2[] whitespacePositions =
+                    whitespaceGlyph
+                        .GetType()
+                        .GetField("Positions", BindingFlags.Instance | BindingFlags.Public)
+                        .GetValue(whitespaceGlyph) as Vector2[];
+                Assert.That(whitespacePositions, Has.Length.EqualTo(4));
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
         [TestCase(28)]
         [TestCase(36)]
         public void CortexMatrixVolumeBuildsOneQuadPerCell(int blockCount)
@@ -501,51 +682,73 @@ namespace Hypocycloid.Editor
             const int structureRows = 64;
             const int tokenRows = 8;
             int columns = blockCount * CortexHeatGrid.ColumnsPerBlock;
+            // Instance method: it reads ColumnHeight off the component, so it needs a real one
+            // to invoke against rather than a null target.
             MethodInfo build = typeof(CortexMatrixVolume).GetMethod(
                 "BuildCellMesh",
-                BindingFlags.Static | BindingFlags.NonPublic
+                BindingFlags.Instance | BindingFlags.NonPublic
             );
             Assert.That(build, Is.Not.Null);
 
-            Mesh mesh = (Mesh)
-                build.Invoke(
-                    null,
-                    new object[] { columns, structureRows, tokenRows, 0.72f, 1.08f, 0.3f }
-                );
+            GameObject host = new(nameof(CortexMatrixVolumeBuildsOneQuadPerCell));
+            Mesh mesh = null;
             try
             {
+                CortexMatrixVolume volume = host.AddComponent<CortexMatrixVolume>();
+                mesh = (Mesh)
+                    build.Invoke(
+                        volume,
+                        new object[] { columns, structureRows, tokenRows, 0.72f, 1.08f, 0.3f }
+                    );
                 int cellCount = columns * (structureRows + tokenRows);
                 Assert.That(mesh.vertexCount, Is.EqualTo(cellCount * 4));
                 Assert.That(mesh.GetIndexCount(0), Is.EqualTo((uint)(cellCount * 6)));
             }
             finally
             {
-                Object.DestroyImmediate(mesh);
+                if (mesh != null)
+                    Object.DestroyImmediate(mesh);
+                Object.DestroyImmediate(host);
             }
         }
 
         [Test]
         public void CortexMatrixFoldedMappingClosesSeamAndLowersTokenDisk()
         {
+            // Instance method: the fold heights come from the component's ColumnHeight.
             MethodInfo calculate = typeof(CortexMatrixVolume).GetMethod(
                 "CalculateFoldedPosition",
-                BindingFlags.Static | BindingFlags.NonPublic
+                BindingFlags.Instance | BindingFlags.NonPublic
             );
             Assert.That(calculate, Is.Not.Null);
 
-            object[] Shape(float u, float vertical, bool token) =>
-                new object[] { u, vertical, token, 0.72f, 1.08f, 0.3f };
-            Vector3 seamStart = (Vector3)calculate.Invoke(null, Shape(0f, 0.5f, false));
-            Vector3 seamEnd = (Vector3)calculate.Invoke(null, Shape(1f, 0.5f, false));
-            Vector3 columnBottom = (Vector3)calculate.Invoke(null, Shape(0.25f, 0f, false));
-            Vector3 diskOuter = (Vector3)calculate.Invoke(null, Shape(0.25f, 0f, true));
+            GameObject host = new(nameof(CortexMatrixFoldedMappingClosesSeamAndLowersTokenDisk));
+            try
+            {
+                CortexMatrixVolume volume = host.AddComponent<CortexMatrixVolume>();
+                Vector3 Fold(float u, float vertical, bool token) =>
+                    (Vector3)
+                        calculate.Invoke(
+                            volume,
+                            new object[] { u, vertical, token, 0.72f, 1.08f, 0.3f }
+                        );
 
-            Assert.That(Vector3.Distance(seamStart, seamEnd), Is.LessThan(0.0001f));
-            Assert.That(diskOuter.y, Is.LessThan(columnBottom.y));
-            Assert.That(
-                new Vector2(diskOuter.x, diskOuter.z).magnitude,
-                Is.EqualTo(1.08f).Within(0.0001f)
-            );
+                Vector3 seamStart = Fold(0f, 0.5f, false);
+                Vector3 seamEnd = Fold(1f, 0.5f, false);
+                Vector3 columnBottom = Fold(0.25f, 0f, false);
+                Vector3 diskOuter = Fold(0.25f, 0f, true);
+
+                Assert.That(Vector3.Distance(seamStart, seamEnd), Is.LessThan(0.0001f));
+                Assert.That(diskOuter.y, Is.LessThan(columnBottom.y));
+                Assert.That(
+                    new Vector2(diskOuter.x, diskOuter.z).magnitude,
+                    Is.EqualTo(1.08f).Within(0.0001f)
+                );
+            }
+            finally
+            {
+                Object.DestroyImmediate(host);
+            }
         }
 
         [Test]
@@ -756,11 +959,13 @@ namespace Hypocycloid.Editor
                 .GenerateTokens(shortPrompt, generation, Array.Empty<int>())
                 .First();
 
-            using (ChatStream stopped = service.BeginStream(
-                shortPrompt,
-                generation,
-                new[] { firstToken }
-            ))
+            using (
+                ChatStream stopped = service.BeginStream(
+                    shortPrompt,
+                    generation,
+                    new[] { firstToken }
+                )
+            )
             {
                 while (stopped.Tick(1000)) { }
                 Assert.That(stopped.Result.FinishReason, Is.EqualTo(ChatFinishReason.StopToken));
@@ -922,8 +1127,11 @@ namespace Hypocycloid.Editor
                     "contextPanel",
                     "contextLabel",
                     "compactButton",
-                    "tooltipPanel",
-                    "tooltipLabel",
+                    // Cell tooltips render through the shared TipSystem rather than a panel the
+                    // controller owns, so these are the anchor and the trigger, not a panel/label
+                    // pair.
+                    "tooltipAnchor",
+                    "tooltipTrigger",
                     "messagesScroll",
                     "messagesContent",
                     "messagesLayout",
@@ -959,7 +1167,7 @@ namespace Hypocycloid.Editor
                     Is.Not.Null
                 );
                 Assert.That(
-                    serializedVolume.FindProperty("volumeShader").objectReferenceValue,
+                    serializedVolume.FindProperty("volumeMaterial").objectReferenceValue,
                     Is.Not.Null
                 );
                 UnityEngine.UI.RawImage contextRing = root
@@ -975,14 +1183,8 @@ namespace Hypocycloid.Editor
                 Assert.That(input, Is.Not.Null);
                 Assert.That(input.lineType, Is.EqualTo(TMP_InputField.LineType.MultiLineNewline));
                 Assert.That(root.transform.Find("Panel/ContextPanel"), Is.Not.Null);
-                Assert.That(
-                    root.transform.Find("Panel/Content/Messages/MessagesFoldButton"),
-                    Is.Not.Null
-                );
-                Assert.That(
-                    root.transform.Find("Panel/Content/Messages/MessagesOpenButton"),
-                    Is.Not.Null
-                );
+                Assert.That(root.transform.Find("Panel/Content/Messages/FoldButton"), Is.Not.Null);
+                Assert.That(root.transform.Find("Panel/Content/Messages/OpenButton"), Is.Not.Null);
                 UnityEngine.UI.LayoutElement inputLayout = root
                     .transform.Find("Panel/Content/InputRow")
                     .GetComponent<UnityEngine.UI.LayoutElement>();
@@ -1005,8 +1207,8 @@ namespace Hypocycloid.Editor
                     Is.EqualTo(56f)
                 );
                 Assert.That(messages.Find("Viewport").gameObject.activeSelf, Is.True);
-                Assert.That(messages.Find("MessagesFoldButton").gameObject.activeSelf, Is.False);
-                Assert.That(messages.Find("MessagesOpenButton").gameObject.activeSelf, Is.True);
+                Assert.That(messages.Find("FoldButton").gameObject.activeSelf, Is.False);
+                Assert.That(messages.Find("OpenButton").gameObject.activeSelf, Is.True);
                 Assert.That(
                     root.transform.Find("Panel/Content/MatrixFrame/DimensionToggle"),
                     Is.Null
@@ -1128,10 +1330,11 @@ namespace Hypocycloid.Editor
                     typeof(LlmModelDownloader)
                         .GetField("DownloadStarted", eventFlags)
                         .GetValue(downloader);
-                Action<string, float> downloadStatusChanged = (Action<string, float>)
-                    typeof(LlmModelDownloader)
-                        .GetField("DownloadStatusChanged", eventFlags)
-                        .GetValue(downloader);
+                Action<string, float> downloadStatusChanged =
+                    (Action<string, float>)
+                        typeof(LlmModelDownloader)
+                            .GetField("DownloadStatusChanged", eventFlags)
+                            .GetValue(downloader);
                 Action downloadFinished = (Action)
                     typeof(LlmModelDownloader)
                         .GetField("DownloadFinished", eventFlags)
@@ -1200,10 +1403,7 @@ namespace Hypocycloid.Editor
 
                 loading.SetProgress(0.5f);
                 Assert.That(loading.IndeterminateVisual.activeSelf, Is.True);
-                Assert.That(
-                    ring.material.GetFloat("_Progress"),
-                    Is.EqualTo(0.5f).Within(0.001f)
-                );
+                Assert.That(ring.material.GetFloat("_Progress"), Is.EqualTo(0.5f).Within(0.001f));
                 loading.SetProgress(0f);
                 Assert.That(loading.IndeterminateVisual.activeSelf, Is.False);
             }

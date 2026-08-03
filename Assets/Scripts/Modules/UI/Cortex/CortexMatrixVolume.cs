@@ -1,7 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using Hypocycloid.Utils;
+using TMPro;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.TextCore;
 using UnityEngine.UI;
 
 namespace Hypocycloid.Ratioscope
@@ -13,6 +17,22 @@ namespace Hypocycloid.Ratioscope
     [DisallowMultipleComponent]
     public sealed class CortexMatrixVolume : MonoBehaviour
     {
+        /// <summary>
+        /// Symbols the layer rows scramble through. They are meaningless on purpose: a fixed
+        /// label per layer reads as static text, a drifting field of symbols reads as work.
+        /// Must not exceed CORTEX_GLYPH_CAPACITY in CortexUtils.cginc.
+        /// </summary>
+        public const string LayerGlyphSymbols = "+=!@#$%^&*";
+
+        const int TokenLabelCharacterLimit = 3;
+        const int CompactTokenLabelCharacterLimit = 1;
+
+        /// <summary>
+        /// Ceiling on symbol slots per layer cell. Past this the characters are too small to
+        /// tell apart at any realistic panel size, however wide the cells get.
+        /// </summary>
+        const int MaxLayerGlyphSlots = 4;
+
         static readonly Vector2[] CellCorners =
         {
             new(0f, 0f),
@@ -22,6 +42,7 @@ namespace Hypocycloid.Ratioscope
         };
 
         static readonly int MainTextureId = Shader.PropertyToID("_MainTex");
+        static readonly int HeatTextureId = Shader.PropertyToID("_HeatTex");
         static readonly int ColumnsId = Shader.PropertyToID("_Cols");
         static readonly int RowsId = Shader.PropertyToID("_Rows");
         static readonly int TokenRowsId = Shader.PropertyToID("_TokenRows");
@@ -32,12 +53,36 @@ namespace Hypocycloid.Ratioscope
         static readonly int PitchId = Shader.PropertyToID("_Pitch");
         static readonly int GlowIntensityId = Shader.PropertyToID("_GlowIntensity");
         static readonly int FlatYSignId = Shader.PropertyToID("_FlatYSign");
+        static readonly int SurfaceOffsetId = Shader.PropertyToID("_SurfaceOffset");
+        static readonly int LayerGlyphSlotsId = Shader.PropertyToID("_LayerGlyphSlots");
+        static readonly int LayerGlyphAtlasId = Shader.PropertyToID("_LayerGlyphAtlas");
+        static readonly int LayerGlyphRectsId = Shader.PropertyToID("_LayerGlyphRects");
+        static readonly int LayerGlyphQuadsId = Shader.PropertyToID("_LayerGlyphQuads");
+        static readonly int LayerGlyphCountId = Shader.PropertyToID("_LayerGlyphCount");
+        static readonly int LayerGlyphGradientScaleId = Shader.PropertyToID(
+            "_LayerGlyphGradientScale"
+        );
+        static readonly int LayerFlatCellAspectId = Shader.PropertyToID("_LayerFlatCellAspect");
+        static readonly int LayerFoldedCellAspectId = Shader.PropertyToID("_LayerFoldedCellAspect");
 
         [SerializeField]
         Camera volumeCamera;
 
+        /// <summary>
+        /// Authored template for the cell material. Everything an artist can settle up front -
+        /// palette, glow, fold stagger, glyph fill - lives on this asset where it can be tuned
+        /// and previewed; the component clones it per instance and drives only the values that
+        /// change with the data or the layout.
+        /// </summary>
         [SerializeField]
-        Shader volumeShader;
+        Material volumeMaterial;
+
+        [SerializeField]
+        TMP_Text tokenTextSource;
+
+        /// <summary>Authored template for the token label material. See volumeMaterial.</summary>
+        [SerializeField]
+        Material tokenLabelMaterial;
 
         [field: SerializeField]
         public float CameraYOffset { get; private set; } = 1.05f;
@@ -63,21 +108,60 @@ namespace Hypocycloid.Ratioscope
         [field: SerializeField]
         public float FoldEpsilon { get; private set; } = 0.001f;
 
+        [field: SerializeField, Min(0.1f)]
+        public float TokenLabelMaxCellWidth { get; private set; } = 0.84f;
+
+        [field: SerializeField, Range(0.1f, 1f)]
+        public float TokenLabelCellHeight { get; private set; } = 0.72f;
+
+        [field: SerializeField, Min(0f)]
+        public float TokenLabelSurfaceOffset { get; private set; } = 0.002f;
+
         RawImage outputImage;
         CortexVisualizationSettings settings;
         RenderTexture heatTexture;
         RenderTexture outputTexture;
-        Material material;
+        Material volumeInstance;
+        Material labelInstance;
         Mesh cellMesh;
+        Mesh tokenLabelMesh;
         CommandBuffer drawCommands;
+        readonly Dictionary<string, TokenGlyphTemplate> tokenGlyphCache = new();
+        readonly List<Vector3> tokenVertices = new();
+        readonly List<Vector2> tokenSheetUvs = new();
+        readonly List<Vector2> tokenHeatUvs = new();
+        readonly List<Vector2> tokenAtlasUvs = new();
+        readonly List<int> tokenIndices = new();
+        int meshColumns;
+        int meshRows;
+        int meshStructureRows;
+        CortexHeatGrid tokenLabelGrid;
         float foldAmount;
         float foldTarget;
         float automaticYaw;
         float userYaw;
         float userPitch;
         bool dragging;
+        bool compactGlyphLayout;
         bool initialized;
         bool renderingSuppressed;
+
+        sealed class TokenGlyphTemplate
+        {
+            public readonly Vector2[] Positions;
+            public readonly Vector2[] AtlasUvs;
+            public readonly float Width;
+
+            public TokenGlyphTemplate(Vector2[] positions, Vector2[] atlasUvs, float width)
+            {
+                Positions = positions;
+                AtlasUvs = atlasUvs;
+                Width = width;
+            }
+        }
+
+        static readonly TokenGlyphTemplate EmptyGlyphTemplate =
+            new(Array.Empty<Vector2>(), Array.Empty<Vector2>(), 0f);
 
         public float FoldAmount => foldAmount;
         public bool IsFolded => foldTarget > FoldEpsilon || foldAmount > FoldEpsilon;
@@ -110,9 +194,14 @@ namespace Hypocycloid.Ratioscope
                 );
             }
 
-            material.SetFloat(FoldId, foldAmount);
-            material.SetFloat(YawId, (automaticYaw + userYaw) * Mathf.Deg2Rad);
-            material.SetFloat(PitchId, userPitch * Mathf.Deg2Rad);
+            float yaw = (automaticYaw + userYaw) * Mathf.Deg2Rad;
+            float pitch = userPitch * Mathf.Deg2Rad;
+            volumeInstance.SetFloat(FoldId, foldAmount);
+            volumeInstance.SetFloat(YawId, yaw);
+            volumeInstance.SetFloat(PitchId, pitch);
+            labelInstance.SetFloat(FoldId, foldAmount);
+            labelInstance.SetFloat(YawId, yaw);
+            labelInstance.SetFloat(PitchId, pitch);
 
             // Rise above center as the fold completes: the higher vantage looks down onto
             // the token disk under the cylinder instead of viewing it edge-on.
@@ -130,10 +219,14 @@ namespace Hypocycloid.Ratioscope
         {
             ReleaseOutputTexture();
             drawCommands?.Release();
-            if (material != null)
-                Destroy(material);
+            if (volumeInstance != null)
+                Destroy(volumeInstance);
+            if (labelInstance != null)
+                Destroy(labelInstance);
             if (cellMesh != null)
                 Destroy(cellMesh);
+            if (tokenLabelMesh != null)
+                Destroy(tokenLabelMesh);
         }
 
         #endregion
@@ -144,10 +237,18 @@ namespace Hypocycloid.Ratioscope
         {
             if (initialized)
                 return true;
-            if (image == null || volumeCamera == null || volumeShader == null)
+            if (
+                image == null
+                || volumeCamera == null
+                || volumeMaterial == null
+                || tokenTextSource == null
+                || tokenTextSource.font == null
+                || tokenTextSource.font.atlasTexture == null
+                || tokenLabelMaterial == null
+            )
             {
                 LogHelper.LogError(
-                    "CortexMatrixVolume requires its authored RawImage, camera, and shader references."
+                    "CortexMatrixVolume requires its authored RawImage, camera, materials, and token text source references."
                 );
                 return false;
             }
@@ -164,8 +265,28 @@ namespace Hypocycloid.Ratioscope
             volumeCamera.farClipPlane = 20f;
             volumeCamera.allowHDR = true;
 
-            material = new Material(volumeShader) { name = "Cortex Matrix Volume (Runtime)" };
-            material.SetFloat(FoldStaggerId, FoldStagger);
+            // Clone rather than use the assets directly: the component writes per-instance state
+            // into these every frame, and writing it into the shared asset would leak back into
+            // the project files in the editor and bleed between instances at runtime.
+            volumeInstance = new Material(volumeMaterial)
+            {
+                name = "Cortex Matrix Volume (Runtime)",
+            };
+            volumeInstance.SetFloat(FoldStaggerId, FoldStagger);
+            UploadLayerGlyphs();
+            labelInstance = new Material(tokenLabelMaterial)
+            {
+                name = "Cortex Token Labels (Runtime)",
+            };
+            labelInstance.SetTexture(MainTextureId, tokenTextSource.font.atlasTexture);
+            labelInstance.SetFloat(FoldStaggerId, FoldStagger);
+            labelInstance.SetFloat(SurfaceOffsetId, TokenLabelSurfaceOffset);
+            tokenLabelMesh = new Mesh
+            {
+                name = "Cortex Token Labels",
+                indexFormat = IndexFormat.UInt32,
+            };
+            tokenLabelMesh.MarkDynamic();
             drawCommands = new CommandBuffer { name = "Cortex Matrix Volume" };
             initialized = true;
             return true;
@@ -177,7 +298,8 @@ namespace Hypocycloid.Ratioscope
                 throw new ArgumentNullException(nameof(visualizationSettings));
             visualizationSettings.Validate();
             settings = visualizationSettings;
-            material?.SetFloat(GlowIntensityId, settings.GlowIntensity);
+            volumeInstance?.SetFloat(GlowIntensityId, settings.GlowIntensity);
+            labelInstance?.SetFloat(GlowIntensityId, settings.GlowIntensity);
         }
 
         public void Rebuild(RenderTexture sourceHeat, int columns, int structureRows, int tokenRows)
@@ -188,6 +310,9 @@ namespace Hypocycloid.Ratioscope
                 );
 
             heatTexture = sourceHeat;
+            meshColumns = columns;
+            meshStructureRows = structureRows;
+            meshRows = structureRows + tokenRows;
             if (cellMesh != null)
                 Destroy(cellMesh);
             cellMesh = BuildCellMesh(
@@ -198,12 +323,17 @@ namespace Hypocycloid.Ratioscope
                 settings.HaloRadius,
                 settings.HaloOffset
             );
-            material.SetTexture(MainTextureId, heatTexture);
-            material.SetFloat(ColumnsId, columns);
-            material.SetFloat(RowsId, structureRows + tokenRows);
-            material.SetFloat(TokenRowsId, tokenRows);
-            material.SetFloat(GlowIntensityId, settings.GlowIntensity);
+            volumeInstance.SetTexture(MainTextureId, heatTexture);
+            volumeInstance.SetFloat(ColumnsId, columns);
+            volumeInstance.SetFloat(RowsId, meshRows);
+            volumeInstance.SetFloat(TokenRowsId, tokenRows);
+            volumeInstance.SetFloat(GlowIntensityId, settings.GlowIntensity);
+            labelInstance.SetTexture(HeatTextureId, heatTexture);
+            labelInstance.SetFloat(GlowIntensityId, settings.GlowIntensity);
+            tokenLabelGrid = null;
+            tokenLabelMesh.Clear();
             EnsureOutputTexture();
+            UpdateLayerCellAspects();
             outputImage.enabled = true;
         }
 
@@ -278,6 +408,7 @@ namespace Hypocycloid.Ratioscope
             );
             volumeCamera.targetTexture = outputTexture;
             outputImage.texture = outputTexture;
+            UpdateLayerCellAspects();
         }
 
         void RenderVolume()
@@ -290,7 +421,9 @@ namespace Hypocycloid.Ratioscope
             // still derived here only to give the flat path its render-texture Y sign, since that
             // path emits clip coordinates directly and bypasses the projection matrix.
             Matrix4x4 gpuProjection = GL.GetGPUProjectionMatrix(cameraProjection, true);
-            material.SetFloat(FlatYSignId, Mathf.Sign(gpuProjection.m11 / cameraProjection.m11));
+            float flatYSign = Mathf.Sign(gpuProjection.m11 / cameraProjection.m11);
+            volumeInstance.SetFloat(FlatYSignId, flatYSign);
+            labelInstance.SetFloat(FlatYSignId, flatYSign);
             drawCommands.SetRenderTarget(outputTexture);
             drawCommands.SetViewport(new Rect(0f, 0f, outputTexture.width, outputTexture.height));
             drawCommands.ClearRenderTarget(true, true, BackgroundColor);
@@ -298,7 +431,9 @@ namespace Hypocycloid.Ratioscope
                 volumeCamera.worldToCameraMatrix,
                 cameraProjection
             );
-            drawCommands.DrawMesh(cellMesh, Matrix4x4.identity, material);
+            drawCommands.DrawMesh(cellMesh, Matrix4x4.identity, volumeInstance);
+            if (tokenLabelMesh.vertexCount > 0)
+                drawCommands.DrawMesh(tokenLabelMesh, Matrix4x4.identity, labelInstance);
             Graphics.ExecuteCommandBuffer(drawCommands);
         }
 
@@ -309,6 +444,324 @@ namespace Hypocycloid.Ratioscope
             if (outputImage != null && outputImage.texture == outputTexture)
                 outputImage.texture = null;
             TextureManager.ReleaseManaged(ref outputTexture);
+        }
+
+        #endregion
+
+        void UpdateLayerCellAspects()
+        {
+            if (
+                volumeInstance == null
+                || outputTexture == null
+                || meshColumns < 1
+                || meshRows < 1
+                || meshStructureRows < 1
+            )
+                return;
+
+            float flatAspect =
+                (outputTexture.width / (float)meshColumns)
+                / (outputTexture.height / (float)meshRows);
+            float foldedAspect =
+                (Mathf.PI * 2f * settings.ColumnRadius / meshColumns)
+                / (ColumnHeight / meshStructureRows);
+            volumeInstance.SetFloat(LayerFlatCellAspectId, flatAspect);
+            volumeInstance.SetFloat(LayerFoldedCellAspectId, foldedAspect);
+
+            // Slots per cell is whatever brings a slot's width closest to a row's height. A
+            // fixed count leaves the slot pitch and the row pitch mismatched, and the symbols
+            // read as per-cell clusters with a seam between them instead of one even grid of
+            // characters. Rounding to the nearest square keeps the horizontal and vertical gaps
+            // within half a slot of each other at any panel aspect.
+            volumeInstance.SetFloat(
+                LayerGlyphSlotsId,
+                Mathf.Clamp(Mathf.RoundToInt(flatAspect), 1, MaxLayerGlyphSlots)
+            );
+            UpdateTokenLabelLayoutForAspect();
+        }
+
+        void UpdateTokenLabelLayoutForAspect()
+        {
+            bool compact = IsVerticalLayout(outputTexture.width, outputTexture.height);
+            if (compactGlyphLayout == compact)
+                return;
+
+            compactGlyphLayout = compact;
+            tokenGlyphCache.Clear();
+            if (tokenLabelGrid != null)
+                UpdateTokenLabels(tokenLabelGrid);
+        }
+
+        static bool IsVerticalLayout(int width, int height) => height > width;
+
+        #region Layer Glyphs
+
+        /// <summary>
+        /// Resolves the layer symbols out of the token label font so both halves of the sheet
+        /// draw the same typeface, and hands the shader everything it needs to sample them:
+        /// the SDF atlas, one atlas UV rect and one placement quad per symbol, and the count.
+        ///
+        /// The quads carry each symbol's true metrics, normalised so the set's shared ink box
+        /// spans 1 on its longer axis. That keeps their relative sizes and baseline positions
+        /// intact - stretching each glyph to fill its own slot would make a "=" as tall as a
+        /// "#" - while letting the shader place the box with a single aspect-correcting fit.
+        ///
+        /// Symbols the font cannot supply are skipped rather than fatal: the field reads the
+        /// same with five symbols as with six.
+        /// </summary>
+        void UploadLayerGlyphs()
+        {
+            TMP_FontAsset font = tokenTextSource.font;
+            // A static atlas already holds everything it will ever hold, and asking it to grow
+            // only produces a warning.
+            if (font.atlasPopulationMode == AtlasPopulationMode.Dynamic)
+                font.TryAddCharacters(LayerGlyphSymbols);
+
+            float em = font.faceInfo.pointSize;
+            float padding = font.atlasPadding;
+            Texture2D atlas = font.atlasTexture;
+            Rect[] ink = new Rect[LayerGlyphSymbols.Length];
+            Vector4[] rects = new Vector4[LayerGlyphSymbols.Length];
+            Vector4[] quads = new Vector4[LayerGlyphSymbols.Length];
+            int found = 0;
+            for (int i = 0; i < LayerGlyphSymbols.Length; i++)
+            {
+                char symbol = LayerGlyphSymbols[i];
+                if (
+                    !font.characterLookupTable.TryGetValue(symbol, out TMP_Character character)
+                    || character.glyph == null
+                    // The token labels only ever draw material 0, so a symbol that landed on a
+                    // spill-over atlas page would sample the wrong texture here.
+                    || character.glyph.atlasIndex != 0
+                )
+                    continue;
+
+                GlyphMetrics metrics = character.glyph.metrics;
+                GlyphRect rect = character.glyph.glyphRect;
+                if (metrics.width <= 0f || metrics.height <= 0f)
+                    continue;
+
+                int slot = found++;
+                ink[slot] = new Rect(
+                    metrics.horizontalBearingX / em,
+                    (metrics.horizontalBearingY - metrics.height) / em,
+                    metrics.width / em,
+                    metrics.height / em
+                );
+
+                // Half a texel in from each padded edge, so bilinear taps never reach across
+                // into whichever glyph TMP packed next door.
+                float inset = 0.5f;
+                rects[slot] = new Vector4(
+                    (rect.x - padding + inset) / atlas.width,
+                    (rect.y - padding + inset) / atlas.height,
+                    (rect.width + padding * 2f - inset * 2f) / atlas.width,
+                    (rect.height + padding * 2f - inset * 2f) / atlas.height
+                );
+            }
+
+            if (found == 0)
+            {
+                LogHelper.LogWarning(
+                    $"The token label font carries none of the layer symbols \"{LayerGlyphSymbols}\"; "
+                        + "the layer rows will fall back to plain cell blocks."
+                );
+                volumeInstance.SetFloat(LayerGlyphCountId, 0f);
+                return;
+            }
+
+            Rect union = ink[0];
+            for (int i = 1; i < found; i++)
+            {
+                union.xMin = Mathf.Min(union.xMin, ink[i].xMin);
+                union.yMin = Mathf.Min(union.yMin, ink[i].yMin);
+                union.xMax = Mathf.Max(union.xMax, ink[i].xMax);
+                union.yMax = Mathf.Max(union.yMax, ink[i].yMax);
+            }
+
+            float scale = 1f / Mathf.Max(union.width, union.height);
+            Vector2 origin = union.center;
+            float padded = padding / em;
+            for (int i = 0; i < found; i++)
+            {
+                Rect box = ink[i];
+                quads[i] = new Vector4(
+                    (box.center.x - origin.x) * scale,
+                    (box.center.y - origin.y) * scale,
+                    (box.width * 0.5f + padded) * scale,
+                    (box.height * 0.5f + padded) * scale
+                );
+            }
+
+            volumeInstance.SetTexture(LayerGlyphAtlasId, atlas);
+            volumeInstance.SetVectorArray(LayerGlyphRectsId, rects);
+            volumeInstance.SetVectorArray(LayerGlyphQuadsId, quads);
+            volumeInstance.SetFloat(LayerGlyphCountId, found);
+            // TMP's own convention for the width of the distance ramp, in atlas texels.
+            volumeInstance.SetFloat(LayerGlyphGradientScaleId, padding + 1f);
+        }
+
+        #endregion
+
+        #region Token Labels
+
+        /// <summary>
+        /// Rebuilds the single batched glyph mesh for occupied token cells. TMP remains the
+        /// source of glyph layout and atlas UVs; the resulting mesh follows the Cortex morph.
+        /// </summary>
+        public void UpdateTokenLabels(CortexHeatGrid grid)
+        {
+            if (!initialized || grid == null)
+                return;
+
+            tokenLabelGrid = grid;
+            tokenVertices.Clear();
+            tokenSheetUvs.Clear();
+            tokenHeatUvs.Clear();
+            tokenAtlasUvs.Clear();
+            tokenIndices.Clear();
+
+            int rows = grid.Height;
+            for (int row = 0; row < grid.TokenRows; row++)
+            {
+                for (int column = 0; column < grid.Width; column++)
+                {
+                    CortexCellInfo cell = grid.GetCell(column, row);
+                    if (string.IsNullOrEmpty(cell.TokenText))
+                        continue;
+
+                    TokenGlyphTemplate glyphs = GetTokenGlyphs(cell.TokenText);
+                    if (glyphs.Positions.Length == 0)
+                        continue;
+
+                    float scale = Mathf.Min(
+                        TokenLabelCellHeight,
+                        TokenLabelMaxCellWidth / glyphs.Width
+                    );
+                    Vector2 heatUv = new((column + 0.5f) / grid.Width, (row + 0.5f) / rows);
+                    int firstVertex = tokenVertices.Count;
+                    for (int i = 0; i < glyphs.Positions.Length; i++)
+                    {
+                        Vector2 offset = glyphs.Positions[i] * scale;
+                        float sheetU = (column + 0.5f + offset.x) / grid.Width;
+                        float sheetV = (row + 0.5f + offset.y) / rows;
+                        float tokenVertical = (row + 0.5f + offset.y) / grid.TokenRows;
+                        Vector3 folded = CalculateFoldedPosition(
+                            sheetU,
+                            tokenVertical,
+                            true,
+                            settings.ColumnRadius,
+                            settings.HaloRadius,
+                            settings.HaloOffset
+                        );
+                        tokenVertices.Add(folded);
+                        tokenSheetUvs.Add(new Vector2(sheetU, sheetV));
+                        tokenHeatUvs.Add(heatUv);
+                        tokenAtlasUvs.Add(glyphs.AtlasUvs[i]);
+                    }
+
+                    int glyphCount = glyphs.Positions.Length / 4;
+                    for (int glyph = 0; glyph < glyphCount; glyph++)
+                    {
+                        int vertex = firstVertex + glyph * 4;
+                        tokenIndices.Add(vertex);
+                        tokenIndices.Add(vertex + 1);
+                        tokenIndices.Add(vertex + 2);
+                        tokenIndices.Add(vertex + 2);
+                        tokenIndices.Add(vertex + 3);
+                        tokenIndices.Add(vertex);
+                    }
+                }
+            }
+
+            tokenLabelMesh.Clear();
+            tokenLabelMesh.SetVertices(tokenVertices);
+            tokenLabelMesh.SetUVs(0, tokenSheetUvs);
+            tokenLabelMesh.SetUVs(1, tokenHeatUvs);
+            tokenLabelMesh.SetUVs(2, tokenAtlasUvs);
+            tokenLabelMesh.SetTriangles(tokenIndices, 0, true);
+        }
+
+        TokenGlyphTemplate GetTokenGlyphs(string text)
+        {
+            if (tokenGlyphCache.TryGetValue(text, out TokenGlyphTemplate cached))
+                return cached;
+
+            string displayText = GetTokenDisplayText(
+                text,
+                compactGlyphLayout ? CompactTokenLabelCharacterLimit : TokenLabelCharacterLimit
+            );
+            if (displayText.Length == 0)
+            {
+                tokenGlyphCache.Add(text, EmptyGlyphTemplate);
+                return EmptyGlyphTemplate;
+            }
+
+            TMP_TextInfo textInfo = tokenTextSource.GetTextInfo(displayText);
+            int visibleCount = 0;
+            Vector2 min = new(float.PositiveInfinity, float.PositiveInfinity);
+            Vector2 max = new(float.NegativeInfinity, float.NegativeInfinity);
+            for (int i = 0; i < textInfo.characterCount; i++)
+            {
+                TMP_CharacterInfo character = textInfo.characterInfo[i];
+                if (!character.isVisible || character.materialReferenceIndex != 0)
+                    continue;
+
+                TMP_MeshInfo meshInfo = textInfo.meshInfo[0];
+                for (int corner = 0; corner < 4; corner++)
+                {
+                    Vector3 vertex = meshInfo.vertices[character.vertexIndex + corner];
+                    min = Vector2.Min(min, vertex);
+                    max = Vector2.Max(max, vertex);
+                }
+                visibleCount++;
+            }
+
+            float height = max.y - min.y;
+            if (visibleCount == 0 || height <= Mathf.Epsilon)
+            {
+                tokenGlyphCache.Add(text, EmptyGlyphTemplate);
+                return EmptyGlyphTemplate;
+            }
+
+            Vector2 center = (min + max) * 0.5f;
+            Vector2[] positions = new Vector2[visibleCount * 4];
+            Vector2[] atlasUvs = new Vector2[positions.Length];
+            int destination = 0;
+            for (int i = 0; i < textInfo.characterCount; i++)
+            {
+                TMP_CharacterInfo character = textInfo.characterInfo[i];
+                if (!character.isVisible || character.materialReferenceIndex != 0)
+                    continue;
+
+                TMP_MeshInfo meshInfo = textInfo.meshInfo[0];
+                for (int corner = 0; corner < 4; corner++)
+                {
+                    int source = character.vertexIndex + corner;
+                    positions[destination] = ((Vector2)meshInfo.vertices[source] - center) / height;
+                    atlasUvs[destination] = meshInfo.uvs0[source];
+                    destination++;
+                }
+            }
+
+            TokenGlyphTemplate result = new(positions, atlasUvs, (max.x - min.x) / height);
+            tokenGlyphCache.Add(text, result);
+            return result;
+        }
+
+        static string GetTokenDisplayText(string text, int characterLimit)
+        {
+            if (string.IsNullOrEmpty(text))
+                return "";
+            if (string.IsNullOrWhiteSpace(text))
+                return "\u00B7";
+
+            string trimmed = text.Trim();
+
+            int[] characterStarts = StringInfo.ParseCombiningCharacters(trimmed);
+            return characterStarts.Length <= characterLimit
+                ? trimmed
+                : trimmed.Substring(0, characterStarts[characterLimit]);
         }
 
         #endregion
@@ -427,7 +880,8 @@ namespace Hypocycloid.Ratioscope
 
         public void SetEntropy(float entropyMix)
         {
-            material?.SetFloat(EntropyMixId, entropyMix);
+            volumeInstance?.SetFloat(EntropyMixId, entropyMix);
+            labelInstance?.SetFloat(EntropyMixId, entropyMix);
         }
 
         /// <summary>Stops the off-screen camera render while the matrix is not on screen.</summary>
@@ -439,7 +893,8 @@ namespace Hypocycloid.Ratioscope
         public void ClearHeatTexture()
         {
             heatTexture = null;
-            material?.SetTexture(MainTextureId, null);
+            volumeInstance?.SetTexture(MainTextureId, null);
+            labelInstance?.SetTexture(HeatTextureId, null);
         }
 
         #endregion

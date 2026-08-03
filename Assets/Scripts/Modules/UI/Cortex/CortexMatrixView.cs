@@ -194,11 +194,15 @@ namespace Hypocycloid.Ratioscope
             attached = null;
         }
 
-        void OnForwardEvaluated() => Grid.OnForward();
+        void OnForwardEvaluated()
+        {
+            Grid.OnForward();
+        }
 
         void OnTokenSampled(TokenMetrics metrics)
         {
             Grid.OnToken(metrics);
+            volume.UpdateTokenLabels(Grid);
         }
 
         #endregion
@@ -217,15 +221,19 @@ namespace Hypocycloid.Ratioscope
                 visualization.EntropySmoothing
             );
             ReleaseHeatResources();
-            RenderTextureDescriptor descriptor =
-                new(Grid.Width, Grid.Height, RenderTextureFormat.RFloat, 0)
-                {
-                    enableRandomWrite = SystemInfo.supportsComputeShaders,
-                    msaaSamples = 1,
-                    useMipMap = false,
-                    autoGenerateMips = false,
-                    sRGB = false,
-                };
+            RenderTextureDescriptor descriptor = new(
+                Grid.Width,
+                Grid.Height,
+                RenderTextureFormat.RFloat,
+                0
+            )
+            {
+                enableRandomWrite = SystemInfo.supportsComputeShaders,
+                msaaSamples = 1,
+                useMipMap = false,
+                autoGenerateMips = false,
+                sRGB = false,
+            };
             heatTexture = TextureManager.Ins.GetPersistentRenderTexture(
                 "Cortex Heat",
                 descriptor,

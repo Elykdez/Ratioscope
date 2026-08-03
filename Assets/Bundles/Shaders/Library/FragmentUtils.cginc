@@ -10,6 +10,39 @@ float Rand(float2 uv)
     return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453);
 }
 
+// Smoothly interpolated value noise: one `Rand` value per integer lattice cell, blended with a
+// smoothstep so nearby samples stay correlated. Cheaper than gradient (Perlin) noise and reads
+// the same at the scales UI effects use - drifting blobs rather than per-pixel static.
+float ValueNoise(float2 p)
+{
+    float2 cell = floor(p);
+    float2 f = frac(p);
+    float2 blend = f * f * (3.0 - 2.0 * f);
+    float a = Rand(cell);
+    float b = Rand(cell + float2(1.0, 0.0));
+    float c = Rand(cell + float2(0.0, 1.0));
+    float d = Rand(cell + float2(1.0, 1.0));
+    return lerp(lerp(a, b, blend.x), lerp(c, d, blend.x), blend.y);
+}
+
+// Fractal sum of ValueNoise octaves, each half the amplitude and roughly twice the frequency of
+// the last. Normalized back to 0..1. The non-integer scale and offset keep octaves from lining
+// up on the lattice and creating visible grid artifacts.
+float Fbm(float2 p, int octaves)
+{
+    float sum = 0.0;
+    float amplitude = 0.5;
+    float total = 0.0;
+    for (int octave = 0; octave < octaves; octave++)
+    {
+        sum += ValueNoise(p) * amplitude;
+        total += amplitude;
+        p = p * 2.03 + 17.13;
+        amplitude *= 0.5;
+    }
+    return sum / max(total, EPSILON);
+}
+
 // Jittered-grid Voronoi (cellular noise). For a point `p` in grid space (one cell = one unit),
 // finds the nearest of the per-cell jittered seeds across the 3x3 neighbourhood.
 //   jitter: 0 keeps every seed at its cell centre (a regular grid), 1 scatters it across the cell.

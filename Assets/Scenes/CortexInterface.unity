@@ -234,10 +234,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1d3fbffedba3aa34d9a7db1c66e1b641, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Hypocycloid.UI.UIResponsiveCanvasScaler
-  desktopReferenceResolution: {x: 1280, y: 720}
-  mobileLandscapeReferenceResolution: {x: 960, y: 540}
-  mobilePortraitReferenceResolution: {x: 540, y: 960}
-  matchWidthOrHeight: 0.5
 --- !u!1 &87172476
 GameObject:
   m_ObjectHideFlags: 0
@@ -291,6 +287,7 @@ MonoBehaviour:
   maxNewTokens: 0
   enableThinking: 0
   temperature: 0.7
+  hideMissingGlyphWarnings: 1
   frameBudgetMilliseconds: 8
   compactionInstruction:
     m_TableReference:
@@ -846,7 +843,7 @@ PrefabInstance:
       objectReference: {fileID: 330585548}
     - target: {fileID: 1268328820039875644, guid: 77e28b7fa19d9094c9885e5d84650e72, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -0.000030517578
+      value: 0.000019073486
       objectReference: {fileID: 0}
     - target: {fileID: 1268328820039877414, guid: 77e28b7fa19d9094c9885e5d84650e72, type: 3}
       propertyPath: m_AnchorMax.x
@@ -2248,6 +2245,26 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3327743376581767784, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3386822790936153904, guid: 4f380e51bf0b7774d8f26db1c4758f4a, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
