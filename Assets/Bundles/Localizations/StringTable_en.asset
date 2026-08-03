@@ -190,8 +190,8 @@ MonoBehaviour:
     m_Metadata:
       m_Items: []
   - m_Id: 380000000000029
-    m_Localized: Let supported models reason before answering. This uses part of the
-      reply token budget.
+    m_Localized: Let supported models reason before answering. This uses part of
+      the reply token budget.
     m_Metadata:
       m_Items: []
   - m_Id: 12747267327909888
@@ -200,6 +200,10 @@ MonoBehaviour:
       m_Items: []
   - m_Id: 12747433955024896
     m_Localized: Export Chat
+    m_Metadata:
+      m_Items: []
+  - m_Id: 17429933717446656
+    m_Localized: Inspect
     m_Metadata:
       m_Items: []
   references:

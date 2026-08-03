@@ -31,16 +31,31 @@ namespace Hypocycloid.Ratioscope
         public Button ExportButton { get; private set; }
 
         [field: SerializeField]
+        public Button InspectButton { get; private set; }
+
+        [field: SerializeField]
         public CortexChatController CortexChat { get; private set; }
 
         void OnEnable()
         {
             BindButtons();
+            if (CortexChat != null)
+                CortexChat.InspectAvailabilityChanged += OnInspectAvailabilityChanged;
+            // Inspection is only possible while a stream runs, so the button starts disabled.
+            OnInspectAvailabilityChanged(CortexChat != null && CortexChat.CanInspect);
         }
 
         void OnDisable()
         {
             UnbindButtons();
+            if (CortexChat != null)
+                CortexChat.InspectAvailabilityChanged -= OnInspectAvailabilityChanged;
+        }
+
+        void OnInspectAvailabilityChanged(bool available)
+        {
+            if (InspectButton != null)
+                InspectButton.interactable = available;
         }
 
         void BindButtons()
@@ -74,6 +89,12 @@ namespace Hypocycloid.Ratioscope
                 ExportButton.onClick.RemoveListener(OnExportButtonClicked);
                 ExportButton.onClick.AddListener(OnExportButtonClicked);
             }
+
+            if (InspectButton != null)
+            {
+                InspectButton.onClick.RemoveListener(OnInspectButtonClicked);
+                InspectButton.onClick.AddListener(OnInspectButtonClicked);
+            }
         }
 
         void UnbindButtons()
@@ -92,6 +113,9 @@ namespace Hypocycloid.Ratioscope
 
             if (ExportButton != null)
                 ExportButton.onClick.RemoveListener(OnExportButtonClicked);
+
+            if (InspectButton != null)
+                InspectButton.onClick.RemoveListener(OnInspectButtonClicked);
         }
 
         void OnConfigButtonClicked()
@@ -117,6 +141,11 @@ namespace Hypocycloid.Ratioscope
         void OnExportButtonClicked()
         {
             CortexChat?.ExportDialogue();
+        }
+
+        void OnInspectButtonClicked()
+        {
+            CortexChat?.ToggleInspection();
         }
     }
 }

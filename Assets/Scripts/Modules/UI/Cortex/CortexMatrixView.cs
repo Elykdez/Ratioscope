@@ -38,6 +38,7 @@ namespace Hypocycloid.Ratioscope
         /// <summary>The canvas render camera to use for screen-point math (null for Overlay).</summary>
         public Camera EventCamera => ResolveEventCamera();
 
+        bool decayFrozen;
         RenderTexture heatTexture;
         Tensor<float> heatTensor;
         ChatStream attached;
@@ -71,11 +72,19 @@ namespace Hypocycloid.Ratioscope
             }
         }
 
+        /// <summary>
+        /// Freezes heat decay while generation is held for inspection. Rendering and hovering keep
+        /// working; without this the field would fade to nothing within seconds and leave the user
+        /// nothing to inspect.
+        /// </summary>
+        public void SetDecayFrozen(bool value) => decayFrozen = value;
+
         void Update()
         {
             if (heatTexture == null)
                 return;
-            Grid.Decay(Time.deltaTime);
+            if (!decayFrozen)
+                Grid.Decay(Time.deltaTime);
             if (!ShouldRender)
                 return;
             UploadHeat();
