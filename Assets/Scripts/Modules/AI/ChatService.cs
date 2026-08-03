@@ -148,6 +148,7 @@ namespace Hypocycloid.Ratioscope
             worker = new Worker(model, options.Backend);
             if (UsesKvCache)
                 InitializeKvCache();
+            WarmUpGraph();
             stopwatch.Stop();
 
             RuntimeInfo = new ChatRuntimeInfo
@@ -161,6 +162,34 @@ namespace Hypocycloid.Ratioscope
             };
             IsReady = true;
             return RuntimeInfo;
+        }
+
+        /// <summary>
+        /// Runs one throwaway forward so Sentis compiles its compute kernels and uploads the
+        /// weights while the loading overlay is still showing. That first schedule costs 1.2-4.5 s
+        /// on GPUCompute, which the user would otherwise pay on their first message.
+        /// Cache state is deliberately untouched - no CopyOutput runs, so past_* stays zeroed and
+        /// cachedTokenIds stays empty.
+        /// </summary>
+        void WarmUpGraph()
+        {
+            if (!UsesKvCache || options.Backend != BackendType.GPUCompute)
+                return;
+
+            int[] mask = new int[contextLength];
+            mask[^1] = 1;
+            using Tensor<int> ids = new(new TensorShape(1, 1), new[] { 0 });
+            using Tensor<int> maskTensor = new(new TensorShape(1, contextLength), mask);
+            using Tensor<int> position = new(new TensorShape(1, 1), new[] { 0 });
+            worker.SetInput(inputIdsName, ids);
+            worker.SetInput(attentionMaskName, maskTensor);
+            worker.SetInput(positionIdsName, position);
+            for (int i = 0; i < cacheInputNames.Length; i++)
+                worker.SetInput(cacheInputNames[i], cacheInputs[i]);
+            worker.Schedule();
+
+            // Blocking read; the inputs above stay alive until the GPU has consumed them.
+            ReadLogits();
         }
 
         public ChatResult Chat(
@@ -464,12 +493,17 @@ namespace Hypocycloid.Ratioscope
 
         internal void ScheduleCachedForward(Tensor<int> ids, Tensor<int> mask, Tensor<int> position)
         {
+            long stage = ChatStreamProfile.Now();
             worker.SetInput(inputIdsName, ids);
             worker.SetInput(attentionMaskName, mask);
             worker.SetInput(positionIdsName, position);
             for (int i = 0; i < cacheInputNames.Length; i++)
                 worker.SetInput(cacheInputNames[i], cacheInputs[i]);
+            ChatStreamProfile.Add(ref ChatStreamProfile.SetInputMs, stage);
+
+            stage = ChatStreamProfile.Now();
             worker.Schedule();
+            ChatStreamProfile.Add(ref ChatStreamProfile.ScheduleMs, stage);
         }
 
         internal int PrepareCachedPrompt(IReadOnlyList<int> promptIds)
@@ -501,6 +535,7 @@ namespace Hypocycloid.Ratioscope
 
         internal void CommitCachedForward(int token, float[] logits)
         {
+            long stage = ChatStreamProfile.Now();
             for (int i = 0; i < cacheOutputNames.Length; i++)
             {
                 Tensor destination = cacheInputs[i];
@@ -515,6 +550,7 @@ namespace Hypocycloid.Ratioscope
             cacheAttentionMask[^1] = 1;
             cachedTokenIds.Add(token);
             cachedNextLogits = logits;
+            ChatStreamProfile.Add(ref ChatStreamProfile.CacheCopyMs, stage);
         }
 
         internal float[] ReadLogits()

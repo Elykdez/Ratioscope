@@ -32,10 +32,10 @@ namespace Hypocycloid.Editor
 
         public void OnPreprocessBuild(BuildReport report)
         {
-            SetVersion();
+            SetVersion(report.summary.platform);
         }
 
-        static void SetVersion()
+        static void SetVersion(BuildTarget buildTarget)
         {
             BuildConfig buildConfig = Config;
             if (buildConfig == null)
@@ -70,15 +70,23 @@ namespace Hypocycloid.Editor
                     revision = oldRevision + 1;
             }
 
-            string branch = SanitizeSemVerIdentifier(BuildConfig.GetGitBranchName());
-            string version = string.Format(
-                CultureInfo.InvariantCulture,
-                buildConfig.format,
-                prefix,
-                versionDate,
-                branch,
-                revision
-            );
+            string version;
+            if (buildTarget == BuildTarget.iOS)
+            {
+                version = $"{prefix}.{versionDate}-{revision}";
+            }
+            else
+            {
+                string branch = SanitizeSemVerIdentifier(BuildConfig.GetGitBranchName());
+                version = string.Format(
+                    CultureInfo.InvariantCulture,
+                    buildConfig.format,
+                    prefix,
+                    versionDate,
+                    branch,
+                    revision
+                );
+            }
 
             if (!Regex.IsMatch(version, ExtendedSemanticVersionPattern))
                 throw new InvalidOperationException(
