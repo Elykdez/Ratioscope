@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using UnityEngine;
 
 namespace Hypocycloid.Ratioscope
 {
@@ -17,6 +18,7 @@ namespace Hypocycloid.Ratioscope
         public static double CacheCopyMs;
         public static int Tokens;
 
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         public static void Reset()
         {
             PrepareMs = 0;

@@ -1,3 +1,4 @@
+using System.Reflection;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
@@ -8,6 +9,29 @@ namespace Hypocycloid.UI
 {
     public static class UIHelper
     {
+        // TMP exposes TMP_Settings.warningsDisabled read-only, so the serialized flag behind it
+        // is what gets written.
+        static readonly FieldInfo TextWarningsField = typeof(TMP_Settings).GetField(
+            "m_warningsDisabled",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        );
+
+        /// <summary>
+        /// Turns TMP's console warnings - missing glyph, missing font asset - on or off. The
+        /// flag lives on the TMP Settings asset loaded from Resources; this only changes the
+        /// loaded copy, so the project asset keeps whatever it has serialized. Returns false
+        /// when the flag could not be reached.
+        /// </summary>
+        public static bool SetTextWarningsEnabled(bool enabled)
+        {
+            TMP_Settings settings = TMP_Settings.instance;
+            if (TextWarningsField == null || settings == null)
+                return false;
+
+            TextWarningsField.SetValue(settings, !enabled);
+            return true;
+        }
+
         public static void AddTriggerEvent(
             EventTrigger trigger,
             EventTriggerType type,

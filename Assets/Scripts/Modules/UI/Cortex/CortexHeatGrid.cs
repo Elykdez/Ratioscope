@@ -12,6 +12,7 @@ namespace Hypocycloid.Ratioscope
         public string Region;
         public float Heat;
         public int TokenId;
+        public string TokenText;
         public float Probability;
     }
 
@@ -30,6 +31,7 @@ namespace Hypocycloid.Ratioscope
         readonly float[] heat;
         readonly int[] cellBlock;
         readonly int[] cellToken;
+        readonly string[] cellTokenText;
         readonly float[] cellProbability;
         readonly string[] cellBranch;
         readonly string[] cellStage;
@@ -86,6 +88,7 @@ namespace Hypocycloid.Ratioscope
             heat = new float[Width * Height];
             cellBlock = new int[Width * Height];
             cellToken = new int[Width * Height];
+            cellTokenText = new string[Width * Height];
             cellProbability = new float[Width * Height];
             cellBranch = new string[Width * Height];
             cellStage = new string[Width * Height];
@@ -168,6 +171,7 @@ namespace Hypocycloid.Ratioscope
                 if (value > heat[index])
                     heat[index] = value;
                 cellToken[index] = candidate.Id;
+                cellTokenText[index] = candidate.Text;
                 cellProbability[index] = candidate.Probability;
                 cellBlock[index] = -1;
             }
@@ -197,6 +201,7 @@ namespace Hypocycloid.Ratioscope
                 Region = tokenSurface ? "token surface" : "transformer structure",
                 Heat = heat[index],
                 TokenId = cellToken[index],
+                TokenText = cellTokenText[index],
                 Probability = cellProbability[index],
             };
         }

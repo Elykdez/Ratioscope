@@ -6,9 +6,18 @@ Shader "Ratioscope/CortexMatrix"
     Properties
     {
         _MainTex ("Heat", 2D) = "black" { }
+        // The TMP SDF font atlas the token labels use; C# supplies it along with the per-symbol
+        // rect and quad arrays, which cannot be declared in a Properties block.
+        _LayerGlyphAtlas ("Layer Glyph Atlas", 2D) = "black" { }
+        _LayerGlyphCount ("Layer Glyph Count", Float) = 0
+        _LayerGlyphGradientScale ("Layer Glyph Gradient Scale", Float) = 1
+        _LayerGlyphFill ("Layer Glyph Cell Fill", Range(0.3, 1)) = 0.66
         _Cols ("Columns", Float) = 1
         _Rows ("Rows", Float) = 1
         _TokenRows ("Token Rows", Float) = 0
+        _LayerGlyphSlots ("Layer Glyph Slots", Float) = 3
+        _LayerFlatCellAspect ("Layer Flat Cell Aspect", Float) = 1
+        _LayerFoldedCellAspect ("Layer Folded Cell Aspect", Float) = 1
         _EntropyMix ("Entropy Mix", Range(0, 1)) = 0
         _CalmColor ("Calm Color", Color) = (0.18, 0.85, 0.45, 1)
         _HotColor ("Hot Color", Color) = (0.25, 0.55, 1.0, 1)
@@ -28,20 +37,30 @@ Shader "Ratioscope/CortexMatrix"
         Pass
         {
             CGPROGRAM
+            #pragma target 3.0
             #pragma vertex vert
             #pragma fragment frag
             #include "UnityCG.cginc"
+            #include "Library/CortexUtils.cginc"
 
             sampler2D _MainTex;
+            sampler2D _LayerGlyphAtlas;
+            float4 _LayerGlyphAtlas_TexelSize;
+            float4 _LayerGlyphRects[CORTEX_GLYPH_CAPACITY];
+            float4 _LayerGlyphQuads[CORTEX_GLYPH_CAPACITY];
+            float _LayerGlyphCount;
+            float _LayerGlyphGradientScale;
+            float _LayerGlyphFill;
             float _Cols;
             float _Rows;
             float _TokenRows;
+            float _LayerGlyphSlots;
+            float _LayerFlatCellAspect;
+            float _LayerFoldedCellAspect;
             float _EntropyMix;
             fixed4 _CalmColor;
             fixed4 _HotColor;
             fixed4 _BgColor;
-
-            #include "CortexMatrixCommon.cginc"
 
             struct appdata
             {
@@ -73,6 +92,25 @@ Shader "Ratioscope/CortexMatrix"
                 float2 cellUv = frac(i.uv * grid);
                 float2 heatUv = (cellId + 0.5) / grid;
                 return CortexShadeCell(
+                    _MainTex,
+                    _LayerGlyphAtlas,
+                    _LayerGlyphAtlas_TexelSize,
+                    _LayerGlyphRects,
+                    _LayerGlyphQuads,
+                    _LayerGlyphCount,
+                    _LayerGlyphGradientScale,
+                    _LayerGlyphFill,
+                    _Cols,
+                    _Rows,
+                    _TokenRows,
+                    _LayerGlyphSlots,
+                    _LayerFlatCellAspect,
+                    _LayerFoldedCellAspect,
+                    _EntropyMix,
+                    _CalmColor.rgb,
+                    _HotColor.rgb,
+                    _BgColor.rgb,
+                    _Time.y,
                     i.uv,
                     heatUv,
                     cellUv,
