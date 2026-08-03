@@ -26,7 +26,7 @@ Tool extension for the Unity Editor that enables easy access to the player prefe
 
 ## Requirements
 
-Unity Version: 2019.4 (LTS) or higher
+Unity Version: 6.0 or higher
 
 Editor Version: Windows, MacOS, Linux
 
@@ -35,7 +35,7 @@ Editor Version: Windows, MacOS, Linux
 The plugin provides *manual* and *UPM* installation.
 
 
-Additionally it's available on the [Unity Asset Store](http://u3d.as/1RLa).
+Additionally it's available on the [Unity Asset Store](http://u3d.as/1RLa) and [Epic FAB Store](https://www.fab.com/listings/79106b62-b37b-4722-87bd-e2f7551ea624).
 
 ### Manual
 Place the PlayerPrefsEditor folder somewhere in your project. It's not relevant where it's located, the plugin will find all of its files by itself.

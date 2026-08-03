@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: c173722ba350334428a0f1869d11f17d
+AssetOrigin:
+  serializedVersion: 1
+  productId: 167903
+  packageName: PlayerPrefs Editor
+  packageVersion: 1.2.5
+  assetPath: Assets/3rd/PlayerPrefsEditor/Samples/SampleScene/InputSystemSetup.cs
+  uploadId: 961616

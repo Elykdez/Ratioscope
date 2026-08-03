@@ -13,6 +13,6 @@ AssetOrigin:
   serializedVersion: 1
   productId: 167903
   packageName: PlayerPrefs Editor
-  packageVersion: 1.2.4
-  assetPath: Assets/3rdParty/PlayerPrefsEditor/Editor/PreferencesEditor/RegistryMonitor.cs
-  uploadId: 782444
+  packageVersion: 1.2.5
+  assetPath: Assets/3rd/PlayerPrefsEditor/Editor/PreferencesEditor/RegistryMonitor.cs
+  uploadId: 961616
