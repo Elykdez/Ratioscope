@@ -189,11 +189,48 @@ namespace Hypocycloid.Ratioscope
         /// <summary>Exception is null when the stream faulted without throwing.</summary>
         public event Action<Exception> StreamFaulted;
 
+        /// <summary>
+        /// True while generation is held for inspection. The stream stays alive and attached; it
+        /// simply stops being ticked, so the matrix keeps its current state for hovering.
+        /// </summary>
+        public bool IsInspecting { get; private set; }
+
+        /// <summary>Inspection can only be entered while a stream is actually generating.</summary>
+        public bool CanInspect => stream != null && stream.State == ChatStreamState.Thinking;
+
+        public event Action<bool> InspectionChanged;
+
+        /// <summary>
+        /// Raised when inspection becomes available or unavailable, so UI can enable its control
+        /// without polling. Fires true on stream attach and false on every teardown.
+        /// </summary>
+        public event Action<bool> InspectionAvailabilityChanged;
+
+        /// <summary>
+        /// Toggles inspection. Entering requires an active stream; leaving is always allowed so a
+        /// stream that ends while held cannot strand the UI. Returns the resulting state.
+        /// </summary>
+        public bool ToggleInspection()
+        {
+            if (!IsInspecting && !CanInspect)
+                return false;
+            SetInspecting(!IsInspecting);
+            return IsInspecting;
+        }
+
+        void SetInspecting(bool value)
+        {
+            if (IsInspecting == value)
+                return;
+            IsInspecting = value;
+            InspectionChanged?.Invoke(value);
+        }
+
         void Update()
         {
             if (IsModelLoading && Time.realtimeSinceStartupAsDouble >= nextLoadingStatusAt)
                 PublishLoadingStatus();
-            if (stream != null)
+            if (stream != null && !IsInspecting)
                 TickStream();
         }
 
@@ -580,10 +617,12 @@ namespace Hypocycloid.Ratioscope
 
         void AttachStream(ChatStream next, StreamPurpose purpose)
         {
+            SetInspecting(false);
             stream = next;
             ActiveStreamPurpose = purpose;
             stream.TokenSampled += OnTokenSampled;
             stream.Completed += OnCompleted;
+            InspectionAvailabilityChanged?.Invoke(true);
             StreamStarted?.Invoke(stream, purpose);
         }
 
@@ -595,6 +634,10 @@ namespace Hypocycloid.Ratioscope
                 stream.Completed -= OnCompleted;
             }
             stream = null;
+            // Every stream teardown - completion, cancel, fault - clears inspection, so the state
+            // can never outlive the generation it was holding.
+            SetInspecting(false);
+            InspectionAvailabilityChanged?.Invoke(false);
             StreamDetached?.Invoke();
         }
 

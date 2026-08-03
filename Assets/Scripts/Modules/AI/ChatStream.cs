@@ -54,6 +54,24 @@ namespace Hypocycloid.Ratioscope
         public int TransformerBlockCount { get; }
 
         /// <summary>
+        /// True while prompt tokens are still being folded into the KV cache. Restoring a long
+        /// conversation ingests one token per forward, so this phase can run far longer than the
+        /// reply that follows it.
+        /// </summary>
+        public bool IsIngestingPrompt => service.UsesKvCache && promptIngestIndex < promptIds.Count;
+
+        /// <summary>Prompt tokens ingested so far, excluding any reused cache prefix.</summary>
+        public int IngestedPromptTokens => promptIngestIndex - ingestStartIndex;
+
+        /// <summary>Prompt tokens this stream has to ingest, excluding any reused cache prefix.</summary>
+        public int PromptTokensToIngest => promptIds.Count - ingestStartIndex;
+
+        /// <summary>Wall time of the most recent forward; the basis for the ingestion estimate.</summary>
+        public double LastForwardSeconds { get; private set; }
+
+        readonly int ingestStartIndex;
+
+        /// <summary>
         /// Graph-operation scheduling telemetry. CPU reports every operation; batched GPU
         /// execution reports one completion marker without splitting the command buffer.
         /// </summary>
@@ -87,6 +105,7 @@ namespace Hypocycloid.Ratioscope
             mask = new int[WindowCapacity];
             if (service.UsesKvCache)
                 promptIngestIndex = service.PrepareCachedPrompt(promptIds);
+            ingestStartIndex = promptIngestIndex;
         }
 
         /// <summary>
@@ -307,6 +326,7 @@ namespace Hypocycloid.Ratioscope
             if (blockingReadback)
                 ReleaseRetainedInputs();
             tokenStopwatch.Stop();
+            LastForwardSeconds = tokenStopwatch.Elapsed.TotalSeconds;
             ForwardEvaluated?.Invoke();
             if (service.UsesKvCache && promptIngestIndex < promptIds.Count)
                 return true;
