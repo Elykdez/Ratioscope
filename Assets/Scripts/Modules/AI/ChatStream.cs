@@ -39,6 +39,12 @@ namespace Hypocycloid.Ratioscope
         int currentForwardToken;
         bool wholeGraphScheduled;
 
+        // Batched GPU execution reads its logits synchronously. Unity's AsyncGPUReadback does not
+        // report completion until several frames after the GPU finishes, so polling it costs
+        // 3 x frame time per token (measured 235 ms) against 107 ms of real schedule + GPU work.
+        // Generation cannot advance without the logits, so the asynchrony buys nothing here.
+        readonly bool blockingReadback;
+
         public ChatStreamState State { get; private set; } = ChatStreamState.Thinking;
         public ChatResult Result { get; private set; }
         public IReadOnlyList<int> GeneratedIds => generated;
@@ -72,6 +78,7 @@ namespace Hypocycloid.Ratioscope
                 stopTokens
                 ?? new[] { service.Tokenizer.EosTokenId, service.Tokenizer.EndOfTurnTokenId };
 
+            blockingReadback = service.SchedulesWholeGraph;
             WindowCapacity = service.ContextLength;
             LayerCount = service.LayerOpNames.Length;
             TransformerBlockCount = service.TransformerBlockCount;
@@ -202,6 +209,7 @@ namespace Hypocycloid.Ratioscope
         void BeginForward()
         {
             tokenStopwatch.Restart();
+            long stage = ChatStreamProfile.Now();
             if (service.UsesKvCache)
             {
                 if (promptIngestIndex < promptIds.Count)
@@ -218,6 +226,7 @@ namespace Hypocycloid.Ratioscope
                     new TensorShape(1, 1),
                     new[] { service.CachedPosition }
                 );
+                ChatStreamProfile.Add(ref ChatStreamProfile.PrepareMs, stage);
                 if (service.SchedulesWholeGraph)
                 {
                     service.ScheduleCachedForward(idsTensor, maskTensor, positionTensor);
@@ -256,7 +265,13 @@ namespace Hypocycloid.Ratioscope
             (forward as IDisposable)?.Dispose();
             forward = null;
             wholeGraphScheduled = false;
-            service.RequestLogitsReadback();
+            // A pre-issued AsyncGPUReadback.Request is serviced on Unity's end-of-frame schedule,
+            // so waiting on it later costs roughly twice the GPU time. On the blocking path let
+            // ReadLogits issue its own request at wait time, which forces an immediate flush.
+            long stage = ChatStreamProfile.Now();
+            if (!blockingReadback)
+                service.RequestLogitsReadback();
+            ChatStreamProfile.Add(ref ChatStreamProfile.ReadbackRequestMs, stage);
             waitingForOutput = true;
             RetainInputTensors();
         }
@@ -269,16 +284,28 @@ namespace Hypocycloid.Ratioscope
 
         bool TryFinishForward()
         {
-            if (!service.AreLogitsReady())
+            // ReadLogits blocks on the pending readback request, so the batched GPU path skips the
+            // poll and completes its token inside the Tick that scheduled it.
+            if (!blockingReadback && !service.AreLogitsReady())
                 return false;
 
+            long stage = ChatStreamProfile.Now();
             float[] logits = service.ReadLogits();
+            ChatStreamProfile.Add(ref ChatStreamProfile.WaitMs, stage);
+            ChatStreamProfile.Tokens++;
             waitingForOutput = false;
 
             if (service.UsesKvCache)
             {
                 service.CommitCachedForward(currentForwardToken, logits);
             }
+
+            // ReadLogits blocked until the whole graph finished, so this token's inputs are already
+            // consumed and can be freed now. The service otherwise holds every stream input until
+            // it is disposed, which grows by three GPU tensors per forward for the whole session.
+            // The CPU path keeps deferring: its Burst jobs can outlive the readback.
+            if (blockingReadback)
+                ReleaseRetainedInputs();
             tokenStopwatch.Stop();
             ForwardEvaluated?.Invoke();
             if (service.UsesKvCache && promptIngestIndex < promptIds.Count)
@@ -364,6 +391,13 @@ namespace Hypocycloid.Ratioscope
             if (positionTensor != null)
                 retainedInputs.Add(positionTensor);
             positionTensor = null;
+        }
+
+        void ReleaseRetainedInputs()
+        {
+            for (int i = 0; i < retainedInputs.Count; i++)
+                retainedInputs[i].Dispose();
+            retainedInputs.Clear();
         }
 
         void RetainTensors()
