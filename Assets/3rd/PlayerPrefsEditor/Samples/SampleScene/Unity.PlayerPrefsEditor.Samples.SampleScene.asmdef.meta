@@ -9,6 +9,6 @@ AssetOrigin:
   serializedVersion: 1
   productId: 167903
   packageName: PlayerPrefs Editor
-  packageVersion: 1.2.4
-  assetPath: Assets/3rdParty/PlayerPrefsEditor/Samples/SampleScene/Unity.PlayerPrefsEditor.Samples.SampleScene.asmdef
-  uploadId: 782444
+  packageVersion: 1.2.5
+  assetPath: Assets/3rd/PlayerPrefsEditor/Samples/SampleScene/Unity.PlayerPrefsEditor.Samples.SampleScene.asmdef
+  uploadId: 961616
