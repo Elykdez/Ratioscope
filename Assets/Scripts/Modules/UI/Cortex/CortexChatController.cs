@@ -258,6 +258,8 @@ namespace Hypocycloid.Ratioscope
             aiCortex.CompactionCancelled += OnCompactionCancelled;
             aiCortex.StreamStartFailed += OnStreamStartFailed;
             aiCortex.StreamFaulted += OnStreamFaulted;
+            aiCortex.InspectionChanged += OnInspectionChanged;
+            aiCortex.InspectionAvailabilityChanged += OnInspectAvailabilityChanged;
         }
 
         void UnsubscribeFromCortex()
@@ -277,6 +279,8 @@ namespace Hypocycloid.Ratioscope
             aiCortex.CompactionCancelled -= OnCompactionCancelled;
             aiCortex.StreamStartFailed -= OnStreamStartFailed;
             aiCortex.StreamFaulted -= OnStreamFaulted;
+            aiCortex.InspectionChanged -= OnInspectionChanged;
+            aiCortex.InspectionAvailabilityChanged -= OnInspectAvailabilityChanged;
         }
 
         void OnModelLoadingStatusChanged(string status)
@@ -330,6 +334,40 @@ namespace Hypocycloid.Ratioscope
             ChatStream stream = aiCortex.ActiveStream;
             if (stream == null || stream.State != ChatStreamState.Thinking)
                 return;
+
+            // This runs every frame, so the held state has to be reported here rather than once on
+            // the toggle, or the next frame overwrites it.
+            if (aiCortex.IsInspecting)
+            {
+                // Inspection can be entered mid-ingestion, where no reply token exists yet.
+                string position = stream.IsIngestingPrompt
+                    ? $"reading context {stream.IngestedPromptTokens}/{stream.PromptTokensToIngest}"
+                    : $"token {stream.GeneratedIds.Count}";
+                string compactPosition = stream.IsIngestingPrompt
+                    ? $"{stream.IngestedPromptTokens}/{stream.PromptTokensToIngest} CTX"
+                    : $"{stream.GeneratedIds.Count} TOK";
+                SetStatus(
+                    $"inspecting | held at {position} | hover the matrix to read tokens",
+                    $"INSPECTING / {compactPosition}"
+                );
+                return;
+            }
+
+            // Ingestion runs one forward per prompt token, so restoring a long conversation can
+            // take minutes. Report progress and a running estimate instead of a bare "thinking".
+            if (stream.IsIngestingPrompt)
+            {
+                int done = stream.IngestedPromptTokens;
+                int total = Mathf.Max(1, stream.PromptTokensToIngest);
+                double remaining = (total - done) * stream.LastForwardSeconds;
+                SetStatus(
+                    $"reading context | token {done}/{total}"
+                        + $" | {FormatDuration(remaining)} left"
+                        + $" | {stream.LastForwardSeconds:0.00}s/token",
+                    $"READING CONTEXT / {done}/{total}"
+                );
+                return;
+            }
 
             string activity =
                 aiCortex.ActiveStreamPurpose == StreamPurpose.Compaction
@@ -998,6 +1036,49 @@ namespace Hypocycloid.Ratioscope
             if (compactButton != null)
                 compactButton.interactable =
                     enabled && !streaming && ModelReady && aiCortex.HasCompletableTurn;
+        }
+
+        static string FormatDuration(double seconds)
+        {
+            if (seconds < 1)
+                return "under 1s";
+            if (seconds < 60)
+                return $"{seconds:0}s";
+            return $"{(int)(seconds / 60)}m {(int)(seconds % 60):00}s";
+        }
+
+        /// <summary>
+        /// Holds generation so the current matrix state can be hovered and inspected. Only takes
+        /// effect while a stream is running; toggling again resumes. Bound to the inspect button.
+        /// </summary>
+        public void ToggleInspection()
+        {
+            if (aiCortex == null)
+                return;
+            aiCortex.ToggleInspection();
+        }
+
+        /// <summary>True while a stream is running, so inspection can be entered.</summary>
+        public bool CanInspect => aiCortex != null && aiCortex.CanInspect;
+
+        /// <summary>Forwarded so UI outside the chat prefab can enable its inspect control.</summary>
+        public event Action<bool> InspectAvailabilityChanged;
+
+        void OnInspectAvailabilityChanged(bool available) =>
+            InspectAvailabilityChanged?.Invoke(available);
+
+        void OnInspectionChanged(bool inspecting)
+        {
+            matrixView?.SetDecayFrozen(inspecting);
+            if (input != null)
+            {
+                input.interactable = !inspecting;
+                if (inspecting)
+                    input.DeactivateInputField();
+            }
+            if (cancelButton != null)
+                cancelButton.interactable = !inspecting;
+            UpdateStreamingStatus();
         }
 
         void ScrollToBottom()
