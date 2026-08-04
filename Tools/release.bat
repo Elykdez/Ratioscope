@@ -1,8 +1,12 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
 
-REM Publish one Ratioscope GitHub Release from prebuilt Windows and Android players.
-REM The model stays outside both players and is uploaded as a separate release asset.
+REM Publish one Ratioscope GitHub Release from prebuilt Windows, macOS, and Android players.
+REM The model stays outside every player and is uploaded as a separate release asset.
+REM
+REM The macOS asset is packed from Builds\Release\Ratioscope.app when the zip is not
+REM already present. Tools\pack-macos.ps1 does that, because a plain Windows zip drops
+REM the POSIX mode bits and macOS then refuses to launch the extracted bundle.
 REM
 REM Usage:
 REM   Tools\release.bat v1.0.0
@@ -35,6 +39,8 @@ for %%I in ("%~dp0..") do set "RELEASE_REPO_ROOT=%%~fI"
 if not defined RELEASE_BUILD_DIR set "RELEASE_BUILD_DIR=%RELEASE_REPO_ROOT%\Builds\Release"
 
 set "RELEASE_WIN=%RELEASE_BUILD_DIR%\Ratioscope-Windows-x64-%RELEASE_TAG%.zip"
+set "RELEASE_MAC=%RELEASE_BUILD_DIR%\Ratioscope-macOS-Universal-%RELEASE_TAG%.zip"
+set "RELEASE_MAC_APP=%RELEASE_BUILD_DIR%\Ratioscope.app"
 set "RELEASE_APK=%RELEASE_BUILD_DIR%\Ratioscope-Android-%RELEASE_TAG%.apk"
 set "RELEASE_MODEL=%RELEASE_REPO_ROOT%\Assets\StreamingAssets\Sentis\Llm_Decode_2048.sentis"
 set "RELEASE_LICENSE=%RELEASE_BUILD_DIR%\Qwen3-1.7B-LICENSE.txt"
@@ -58,13 +64,22 @@ where powershell.exe >nul 2>&1 || (
     exit /b 1
 )
 
-for %%F in ("%RELEASE_WIN%" "%RELEASE_APK%" "%RELEASE_MODEL%") do if not exist "%%~fF" (
+if not exist "%RELEASE_MAC%" if exist "%RELEASE_MAC_APP%" (
+    echo Packing the macOS app bundle...
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%RELEASE_REPO_ROOT%\Tools\pack-macos.ps1" -AppPath "%RELEASE_MAC_APP%" -OutputPath "%RELEASE_MAC%"
+    if errorlevel 1 (
+        echo error: failed to pack %RELEASE_MAC_APP%.>&2
+        exit /b 1
+    )
+)
+
+for %%F in ("%RELEASE_WIN%" "%RELEASE_MAC%" "%RELEASE_APK%" "%RELEASE_MODEL%") do if not exist "%%~fF" (
     echo error: required release asset not found: %%~fF>&2
     exit /b 1
 )
 
 powershell.exe -NoProfile -Command ^
-  "$limit = 2GB; $files = @($env:RELEASE_WIN, $env:RELEASE_APK, $env:RELEASE_MODEL); $bad = @(Get-Item -LiteralPath $files | Where-Object Length -ge $limit); if ($bad.Count) { $bad | ForEach-Object { [Console]::Error.WriteLine('error: release asset must be under 2 GiB: {0} ({1} bytes)', $_.FullName, $_.Length) }; exit 1 }"
+  "$limit = 2GB; $files = @($env:RELEASE_WIN, $env:RELEASE_MAC, $env:RELEASE_APK, $env:RELEASE_MODEL); $bad = @(Get-Item -LiteralPath $files | Where-Object Length -ge $limit); if ($bad.Count) { $bad | ForEach-Object { [Console]::Error.WriteLine('error: release asset must be under 2 GiB: {0} ({1} bytes)', $_.FullName, $_.Length) }; exit 1 }"
 if errorlevel 1 exit /b 1
 
 pushd "%RELEASE_REPO_ROOT%" || exit /b 1
@@ -121,7 +136,7 @@ if errorlevel 1 (
 )
 
 powershell.exe -NoProfile -Command ^
-  "$files = @($env:RELEASE_WIN, $env:RELEASE_APK, $env:RELEASE_MODEL, $env:RELEASE_LICENSE); $lines = foreach ($file in $files) { $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant(); '{0}  {1}' -f $hash, [IO.Path]::GetFileName($file) }; [IO.File]::WriteAllLines($env:RELEASE_CHECKSUMS, $lines, [Text.UTF8Encoding]::new($false))"
+  "$files = @($env:RELEASE_WIN, $env:RELEASE_MAC, $env:RELEASE_APK, $env:RELEASE_MODEL, $env:RELEASE_LICENSE); $lines = foreach ($file in $files) { $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file).Hash.ToLowerInvariant(); '{0}  {1}' -f $hash, [IO.Path]::GetFileName($file) }; [IO.File]::WriteAllLines($env:RELEASE_CHECKSUMS, $lines, [Text.UTF8Encoding]::new($false))"
 if errorlevel 1 (
     echo error: failed to generate %RELEASE_CHECKSUMS%.>&2
     popd
@@ -132,6 +147,7 @@ echo.
 echo Repository: %RELEASE_REPO%
 echo Tag:        %RELEASE_TAG%
 echo Windows:    %RELEASE_WIN%
+echo macOS:      %RELEASE_MAC%
 echo Android:    %RELEASE_APK%
 echo Model:      %RELEASE_MODEL%
 echo Checksums:  %RELEASE_CHECKSUMS%
@@ -146,6 +162,7 @@ if /I "%RELEASE_MODE%"=="--dry-run" (
 
 gh release create "%RELEASE_TAG%" ^
   "%RELEASE_WIN%#Windows x64" ^
+  "%RELEASE_MAC%#macOS Universal (Apple silicon and Intel)" ^
   "%RELEASE_APK%#Android APK" ^
   "%RELEASE_MODEL%#Qwen3-1.7B Sentis model" ^
   "%RELEASE_CHECKSUMS%#SHA-256 checksums" ^
@@ -154,7 +171,7 @@ gh release create "%RELEASE_TAG%" ^
   --target main ^
   --title "Ratioscope %RELEASE_TAG%" ^
   --generate-notes ^
-  --notes "Windows and Android builds do not contain model weights. Download Llm_Decode_2048.sentis separately or use Settings - Download Models. The model is derived from Qwen/Qwen3-1.7B and distributed under Apache 2.0."
+  --notes "Windows, macOS, and Android builds do not contain model weights. Download Llm_Decode_2048.sentis separately or use Settings - Download Models. The model is derived from Qwen/Qwen3-1.7B and distributed under Apache 2.0. The macOS build is universal (Apple silicon and Intel) and is not notarized, so unzip it and run: xattr -dr com.apple.quarantine Ratioscope.app"
 if errorlevel 1 (
     echo error: GitHub Release creation failed. Inspect any draft or partial release before retrying.>&2
     popd
