@@ -83,7 +83,8 @@ Shader "Ratioscope/CortexTokenLabels"
             v2f vert(appdata v)
             {
                 v2f o;
-                float3 folded = RotateX(RotateY(v.vertex.xyz, _Yaw), _Pitch);
+                float3 local = v.vertex.xyz;
+                float3 folded = RotateX(RotateY(local, _Yaw), _Pitch);
 
                 // Labels are coplanar with the token disk, which draws first and writes depth, so
                 // they need a nudge off the surface to survive ZTest. The disk is flat and
@@ -96,6 +97,26 @@ Shader "Ratioscope/CortexTokenLabels"
                 // direction from this vertex toward it.
                 float3 towardEye = -UnityObjectToViewPos(folded);
                 float facing = dot(viewNormal, towardEye) < 0.0 ? -1.0 : 1.0;
+
+                // The pass is Cull Off, so the disk's underside rasterizes - and a label seen from
+                // behind runs backwards with every glyph flipped. Reflecting the vertex about the
+                // plane through the disk axis and the cell centre undoes both at once: it restores
+                // the character order and un-mirrors each glyph, where flipping atlas U alone would
+                // only fix the glyph shapes and leave a three-character label reversed. The
+                // reflection is an isometry of a surface of revolution, so every vertex stays
+                // exactly on the disk. heatUv.x is already the cell's centre in sheet-U space,
+                // which is what makes this cost no extra vertex data.
+                if (facing < 0.0)
+                {
+                    float centreAngle = v.heatUv.x * UNITY_TWO_PI;
+                    float radius = length(local.xz);
+                    float s;
+                    float c;
+                    sincos(2.0 * centreAngle - atan2(local.x, local.z), s, c);
+                    local = float3(s * radius, local.y, c * radius);
+                    folded = RotateX(RotateY(local, _Yaw), _Pitch);
+                }
+
                 folded += foldedNormal * _SurfaceOffset * facing;
 
                 float cellT = saturate(
