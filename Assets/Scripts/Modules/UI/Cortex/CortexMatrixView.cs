@@ -45,6 +45,7 @@ namespace Hypocycloid.Ratioscope
         Canvas canvas;
         CortexVisualizationSettings visualization;
         bool renderingSuppressed;
+        bool heatUploadPending;
 
         // Heat state stays live via stream events and CPU decay so it is truthful when shown
         // again; only the GPU upload and the off-screen render are skipped while off screen.
@@ -83,11 +84,20 @@ namespace Hypocycloid.Ratioscope
         {
             if (heatTexture == null)
                 return;
-            if (!decayFrozen)
-                Grid.Decay(Time.deltaTime);
+            if (!decayFrozen && Grid.Decay(Time.deltaTime))
+                heatUploadPending = true;
             if (!ShouldRender)
                 return;
-            UploadHeat();
+
+            // A settled grid uploads the same 16 KB and runs the same Sentis dispatch every
+            // frame for no visible change. The pending flag rather than Grid.IsCold is what
+            // carries the last zeroing upload across frames spent suppressed or off screen.
+            if (heatUploadPending)
+            {
+                UploadHeat();
+                heatUploadPending = false;
+            }
+
             volume.SetEntropy(
                 Mathf.Clamp01(Grid.SmoothedEntropy * visualization.PaletteEntropyScale)
             );
@@ -197,11 +207,13 @@ namespace Hypocycloid.Ratioscope
         void OnForwardEvaluated()
         {
             Grid.OnForward();
+            heatUploadPending = true;
         }
 
         void OnTokenSampled(TokenMetrics metrics)
         {
             Grid.OnToken(metrics);
+            heatUploadPending = true;
             volume.UpdateTokenLabels(Grid);
         }
 
@@ -221,19 +233,15 @@ namespace Hypocycloid.Ratioscope
                 visualization.EntropySmoothing
             );
             ReleaseHeatResources();
-            RenderTextureDescriptor descriptor = new(
-                Grid.Width,
-                Grid.Height,
-                RenderTextureFormat.RFloat,
-                0
-            )
-            {
-                enableRandomWrite = SystemInfo.supportsComputeShaders,
-                msaaSamples = 1,
-                useMipMap = false,
-                autoGenerateMips = false,
-                sRGB = false,
-            };
+            RenderTextureDescriptor descriptor =
+                new(Grid.Width, Grid.Height, RenderTextureFormat.RFloat, 0)
+                {
+                    enableRandomWrite = SystemInfo.supportsComputeShaders,
+                    msaaSamples = 1,
+                    useMipMap = false,
+                    autoGenerateMips = false,
+                    sRGB = false,
+                };
             heatTexture = TextureManager.Ins.GetPersistentRenderTexture(
                 "Cortex Heat",
                 descriptor,
@@ -245,6 +253,7 @@ namespace Hypocycloid.Ratioscope
             );
             volume.Rebuild(heatTexture, Grid.Width, Grid.StructureRows, Grid.TokenRows);
             UploadHeat();
+            heatUploadPending = false;
             image.enabled = true;
 
             // Diagnostics: confirm heat RT format support on this device.
