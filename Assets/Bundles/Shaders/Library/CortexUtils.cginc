@@ -43,8 +43,10 @@ float CortexHash21(float2 p)
 /// the returned ink decides which pixels of a layer cell light up - never in what colour or how
 /// brightly, which stay entirely with the heat and entropy data.
 ///
-/// Antialiasing derives from sheetUv rather than cellUv: the flat path builds cellUv with
-/// frac(), whose derivatives explode on the cell seams, while sheetUv stays continuous.
+/// sheetFootprint is the caller's screen-space derivative of sheetUv, taken outside this
+/// function so it stays in uniform control flow. It drives antialiasing and comes from sheetUv
+/// rather than cellUv because the flat path builds cellUv with frac(), whose derivatives explode
+/// on the cell seams, while sheetUv stays continuous.
 float CortexSampleLayerGlyph(
     sampler2D glyphAtlas,
     float4 glyphAtlasTexelSize,
@@ -58,7 +60,7 @@ float CortexSampleLayerGlyph(
     float glyphSlots,
     float layerFlatCellAspect,
     float layerFoldedCellAspect,
-    float2 sheetUv,
+    float2 sheetFootprint,
     float2 cellUv,
     float2 cellId,
     float timeSeconds,
@@ -136,7 +138,7 @@ float CortexSampleLayerGlyph(
     // texels and then into field units to land a one-pixel edge. Derived analytically instead
     // of with fwidth(), which would spike into a blurred band on every slot seam.
     float2 slotSize = float2(columns * slots / CORTEX_GLYPH_ROW_INSET, rows);
-    float2 unitsPerPixel = max(abs(ddx(sheetUv)), abs(ddy(sheetUv))) * slotSize / fit;
+    float2 unitsPerPixel = sheetFootprint * slotSize / fit;
     float texelsPerUnit = rect.w * glyphAtlasTexelSize.w / max(quad.w * 2.0, 0.0001);
     float smoothing = max(
         max(unitsPerPixel.x, unitsPerPixel.y)
@@ -202,28 +204,6 @@ fixed4 CortexShadeCell(
     float tokenLabelVisibility = (1.0 - structureMask) * saturate(heat * 4.0);
     float cellFillVisibility = 1.0 - tokenLabelVisibility;
 
-    // Sampled unconditionally: the symbol field needs screen-space derivatives, and gating
-    // it on per-cell heat would leave them undefined on the quads that straddle a seam.
-    float layerGlyph = CortexSampleLayerGlyph(
-        glyphAtlas,
-        glyphAtlasTexelSize,
-        glyphRects,
-        glyphQuads,
-        glyphCount,
-        glyphGradientScale,
-        glyphFill,
-        columns,
-        rows,
-        layerGlyphSlots,
-        layerFlatCellAspect,
-        layerFoldedCellAspect,
-        sheetUv,
-        cellUv,
-        cellId,
-        timeSeconds,
-        volumeMix
-    );
-
     // On the layer rows the symbol *is* the cell: it replaces the solid block rather than
     // sitting on top of it. Everything downstream is untouched, so heat and entropy still own
     // the colour and the brightness exactly as they do for a block - the symbol just decides
@@ -237,6 +217,36 @@ fixed4 CortexShadeCell(
     // so the glyphs read as the model working rather than as wallpaper. Without a symbol set at
     // all, the layer rows keep the blocks they always had.
     float glyphRows = structureMask * step(0.5, glyphCount) * saturate(heat * 3.0);
+
+    // Derivatives have to be taken in uniform control flow, so the screen-space footprint is
+    // measured for every fragment even though only the glyph path consumes it. With it hoisted
+    // out, the sample itself - four hashes and a dependent atlas fetch - can be skipped on the
+    // token rows, on cold cells, and whenever the font supplied no symbols at all.
+    float2 sheetFootprint = max(abs(ddx(sheetUv)), abs(ddy(sheetUv)));
+    float layerGlyph = 0.0;
+    if (glyphRows > 0.0)
+    {
+        layerGlyph = CortexSampleLayerGlyph(
+            glyphAtlas,
+            glyphAtlasTexelSize,
+            glyphRects,
+            glyphQuads,
+            glyphCount,
+            glyphGradientScale,
+            glyphFill,
+            columns,
+            rows,
+            layerGlyphSlots,
+            layerFlatCellAspect,
+            layerFoldedCellAspect,
+            sheetFootprint,
+            cellUv,
+            cellId,
+            timeSeconds,
+            volumeMix
+        );
+    }
+
     float contentMask = lerp(mask, layerGlyph, glyphRows);
     float contentBloom = lerp(bloomMask, layerGlyph, glyphRows);
     float separator = 1.0 - smoothstep(0.0, 0.006, abs(sheetUv.y - tokenEdge));

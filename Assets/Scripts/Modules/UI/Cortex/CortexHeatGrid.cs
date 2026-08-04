@@ -28,6 +28,13 @@ namespace Hypocycloid.Ratioscope
         public const int ColumnsPerBlock = 2;
         public const int StageCount = 4;
 
+        /// <summary>
+        /// Heat this low is already black once the palette quantizes it. Exponential decay only
+        /// approaches zero, so without a floor the grid would never settle and every frame would
+        /// keep re-uploading a texture nobody can tell apart from the last one.
+        /// </summary>
+        const float ColdThreshold = 1f / 512f;
+
         readonly float[] heat;
         readonly int[] cellBlock;
         readonly int[] cellToken;
@@ -47,6 +54,10 @@ namespace Hypocycloid.Ratioscope
         public int TokenRows { get; }
         public int StructureRows { get; }
         public int TransformerBlockCount { get; }
+
+        /// <summary>True once every cell has decayed to zero and the heat can no longer change
+        /// on its own. Cleared by any forward or token signal.</summary>
+        public bool IsCold { get; private set; } = true;
 
         /// <summary>Raw heat values, row-major, for direct texture upload.</summary>
         public float[] Heat => heat;
@@ -153,6 +164,7 @@ namespace Hypocycloid.Ratioscope
         {
             for (int i = TokenRows * Width; i < heat.Length; i++)
                 heat[i] = forwardPulseHeat;
+            IsCold = false;
         }
 
         /// <summary>Flares token-surface cells for each candidate; brightness follows
@@ -176,15 +188,34 @@ namespace Hypocycloid.Ratioscope
                 cellBlock[index] = -1;
             }
             smoothedEntropy += (metrics.Entropy - smoothedEntropy) * entropySmoothing;
+            IsCold = false;
         }
 
-        public void Decay(float deltaSeconds)
+        /// <summary>
+        /// Advances the exponential decay. Returns true when any cell actually changed, so the
+        /// caller can stop re-uploading a grid that has settled.
+        /// </summary>
+        public bool Decay(float deltaSeconds)
         {
-            if (deltaSeconds <= 0f)
-                return;
+            if (deltaSeconds <= 0f || IsCold)
+                return false;
+
             float factor = (float)Math.Exp(-deltaSeconds * heatDecayRate);
+            bool cold = true;
             for (int i = 0; i < heat.Length; i++)
-                heat[i] *= factor;
+            {
+                float value = heat[i] * factor;
+                if (value < ColdThreshold)
+                {
+                    heat[i] = 0f;
+                    continue;
+                }
+                heat[i] = value;
+                cold = false;
+            }
+
+            IsCold = cold;
+            return true;
         }
 
         public CortexCellInfo GetCell(int x, int y)
