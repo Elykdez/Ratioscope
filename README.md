@@ -12,7 +12,13 @@ The telemetry is real, but the visual composition is artistic. It is not a view 
 
 ## Install
 
-Download a build from [Releases](https://github.com/Elykdez/Ratioscope/releases). Windows and Android builds **do not contain model weights**.
+Download a build from [Releases](https://github.com/Elykdez/Ratioscope/releases). Windows, macOS, and Android builds **do not contain model weights**.
+
+The macOS build is a universal binary for Apple silicon and Intel, requiring macOS 12 or newer. It is not notarized, so clear the quarantine flag once after unzipping:
+
+```sh
+xattr -dr com.apple.quarantine Ratioscope.app
+```
 
 On first launch the app downloads the default model. You can pick another CPU or GPU profile; when its artifact is missing, **Settings > Download Models** fetches the selected one. Downloads are streamed to a `.part` file, verified, then stored under `Application.persistentDataPath/Models`, surviving app updates but removed on uninstall.
 
@@ -21,6 +27,7 @@ On first launch the app downloads the default model. You can pick another CPU or
 If the in-app download fails on your device, place the model file manually:
 
 - **Windows**: put the `.sentis` file under `Ratioscope_Data/StreamingAssets/Sentis`.
+- **macOS**: put the `.sentis` file under `Ratioscope.app/Contents/Resources/Data/StreamingAssets/Sentis`. Right-click the app and choose **Show Package Contents** to open the bundle.
 - **Android**: install [adb](https://developer.android.com/tools/adb) and put it on your `PATH`, clone this repository (Unity is not required), download the model into `Assets/StreamingAssets/Sentis`, then run `Tools/push-model.bat` to push it to the connected device. Start the app once first so its data directory exists.
 
 The 4B model has no prebuilt artifact; converting it to a Sentis graph requires the Unity Editor. See [CONTRIBUTION.md](./CONTRIBUTION.md).
